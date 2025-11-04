@@ -50,7 +50,7 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.ClientKeyFile, "tls-key-path", "/etc/konnectivity/proxy-client/tls.key", "The path to the konnectivity client's private key.")
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
-		l.Info("Starting proxy", "version", supportedversion.String())
+		l.Info("Starting proxy - 4", "version", supportedversion.String())
 		client, err := client.New(ctrl.GetConfigOrDie(), client.Options{})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: cannot get client: %v", err)

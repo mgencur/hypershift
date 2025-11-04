@@ -93,11 +93,13 @@ type proxyResolver struct {
 }
 
 func (d proxyResolver) Resolve(ctx context.Context, name string) (context.Context, net.IP, error) {
+	l := d.log.WithValues("name", name)
 	// Preserve the host so we can recognize it
 	if d.isCloudAPI(name) || d.disableResolver {
+		l.Info("Default resolve")
 		return d.defaultResolve(ctx, name)
 	}
-	l := d.log.WithValues("name", name)
+	l.Info("Resolving...")
 	_, ip, err := d.ResolveK8sService(ctx, l, name)
 	if err != nil {
 		l.Info("failed to resolve address from Kubernetes service", "err", err.Error())
@@ -158,6 +160,7 @@ func (d proxyResolver) Resolve(ctx context.Context, name string) (context.Contex
 		l.WithValues("address", address.String()).Info("Successfully looked up address from guest cluster")
 		return ctx, address, nil
 	}
+	l.Info("Resolved my")
 
 	return ctx, ip, nil
 }

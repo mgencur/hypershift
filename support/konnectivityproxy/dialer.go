@@ -253,12 +253,12 @@ func (p *konnectivityProxy) getTLSConfig() *tls.Config {
 // proxy.Dialer interface.
 func (p *konnectivityProxy) DialContext(ctx context.Context, network string, requestAddress string) (net.Conn, error) {
 	log := p.log.WithName("konnectivityProxy.DialContext")
-	log.V(1).Info("Dial called", "network", network, "requestAddress", requestAddress)
+	log.V(0).Info("Dial called", "network", network, "requestAddress", requestAddress)
 	requestHost, requestPort, err := net.SplitHostPort(requestAddress)
 	if err != nil {
 		return nil, fmt.Errorf("invalid address (%s): %w", requestAddress, err)
 	}
-	log.V(1).Info("Host and port determined", "requestHost", requestHost, "requestPort", requestPort)
+	log.V(0).Info("Host and port determined", "requestHost", requestHost, "requestPort", requestPort)
 	// return a dial direct function which respects any proxy environment settings
 	if p.IsCloudAPI(requestHost) {
 		p.log.Info("Host name is cloud API, dialing through mgmt cluster proxy if present")
@@ -281,7 +281,7 @@ func (p *konnectivityProxy) DialContext(ctx context.Context, network string, req
 
 	// connect to the konnectivity server address and get a TLS connection
 	konnectivityServerAddress := net.JoinHostPort(p.konnectivityHost, fmt.Sprintf("%d", p.konnectivityPort))
-	log.V(1).Info("Dialing konnectivity server", "address", konnectivityServerAddress)
+	log.V(0).Info("Dialing konnectivity server", "address", konnectivityServerAddress)
 	tlsDialer := &tls.Dialer{
 		NetDialer: &net.Dialer{Timeout: 60 * time.Second},
 		Config:    tlsConfig,
@@ -309,17 +309,17 @@ func (p *konnectivityProxy) DialContext(ctx context.Context, network string, req
 	// The CONNECT command sent to the Konnectivity server opens a TCP connection
 	// to the request host via the konnectivity tunnel.
 	connectString := fmt.Sprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", requestAddress, requestHost)
-	log.V(1).Info("Sending CONNECT to konnectivity server", "target", requestAddress)
+	log.V(0).Info("Sending CONNECT to konnectivity server", "target", requestAddress)
 	_, err = fmt.Fprintf(konnectivityConnection, "%s", connectString)
 	if err != nil {
-		log.V(1).Error(err, "Failed to write string to konnectivity server connection")
+		log.V(0).Error(err, "Failed to write string to konnectivity server connection")
 		_ = konnectivityConnection.Close()
 		return nil, err
 	}
 
 	// read HTTP response and return the connection
 	br := bufio.NewReader(konnectivityConnection)
-	log.V(1).Info("Reading response from konnectivity server")
+	log.V(0).Info("Reading response from konnectivity server")
 	res, err := http.ReadResponse(br, nil)
 	if err != nil {
 		_ = konnectivityConnection.Close()
@@ -339,7 +339,7 @@ func (p *konnectivityProxy) DialContext(ctx context.Context, network string, req
 		return nil, fmt.Errorf("unexpected %d bytes of buffered data from CONNECT proxy %q",
 			br.Buffered(), konnectivityServerAddress)
 	}
-	log.V(1).Info("Successfully created connection through konnectivity")
+	log.V(0).Info("Successfully created connection through konnectivity")
 	return konnectivityConnection, nil
 }
 
@@ -469,16 +469,16 @@ func (p *konnectivityProxy) IsCloudAPI(host string) bool {
 		// to true.
 		return false
 	}
-	log.V(1).Info("Determining whether host is cloud API", "host", host)
+	log.V(0).Info("Determining whether host is cloud API", "host", host)
 	if p.excludeCloudHosts.Has(host) {
-		log.V(1).Info("Host is in the list of exclude hosts, returning false")
+		log.V(0).Info("Host is in the list of exclude hosts, returning false")
 		return false
 	}
 	if strings.HasSuffix(host, ".amazonaws.com") ||
 		strings.HasSuffix(host, ".microsoftonline.com") ||
 		strings.HasSuffix(host, ".azure.com") ||
 		strings.HasSuffix(host, ".cloud.ibm.com") {
-		log.V(1).Info("Host has one of the cloud API suffixes, returning true")
+		log.V(0).Info("Host has one of the cloud API suffixes, returning true")
 		return true
 	}
 	return false
