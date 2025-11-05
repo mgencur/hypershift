@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	"github.com/openshift/hypershift/support/config"
 	component "github.com/openshift/hypershift/support/controlplane-component"
 	"github.com/openshift/hypershift/support/util"
 
@@ -12,15 +13,18 @@ import (
 )
 
 func adaptDeployment(cpContext component.WorkloadContext, deployment *appsv1.Deployment) error {
+	resolverScheme := config.ResolverSchemePassthrough
 	noProxy := []string{"kube-apiserver"}
 	if cpContext.HCP.Spec.OLMCatalogPlacement == hyperv1.ManagementOLMCatalogPlacement {
 		noProxy = append(noProxy, "certified-operators", "community-operators", "redhat-operators", "redhat-marketplace")
+		resolverScheme = ""
 	}
 
 	util.UpdateContainer(ComponentName, deployment.Spec.Template.Spec.Containers, func(c *corev1.Container) {
 		util.UpsertEnvVars(c, []corev1.EnvVar{
 			{Name: "RELEASE_VERSION", Value: cpContext.UserReleaseImageProvider.Version()},
 			{Name: "NO_PROXY", Value: strings.Join(noProxy, ",")},
+			{Name: "RESOLVER_SCHEME", Value: resolverScheme},
 		})
 	})
 	return nil

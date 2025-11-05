@@ -62,6 +62,8 @@ const (
 	// Constants related to HyperShift operator image.
 	HypershiftImageBase = "quay.io/hypershift/hypershift-operator"
 	HypershiftImageTag  = "latest"
+
+	ResolverSchemePassthrough = "passthrough"
 )
 
 // Managed Azure Related Constants

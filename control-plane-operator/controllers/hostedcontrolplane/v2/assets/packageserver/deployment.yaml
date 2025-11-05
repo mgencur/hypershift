@@ -37,6 +37,8 @@ spec:
           value: packageserver
         - name: GRPC_PROXY
           value: socks5://127.0.0.1:8090
+        - name: RESOLVER_SCHEME
+          value: RESOLVER_SCHEME
         - name: NO_PROXY
           value: kube-apiserver,redhat-operators,certified-operators,community-operators,redhat-marketplace
         image: operator-lifecycle-manager
