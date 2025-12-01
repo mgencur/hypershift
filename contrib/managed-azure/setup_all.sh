@@ -3,6 +3,7 @@ set -x
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+
 # Check if user is logged into Azure, and log in if not
 if ! az account show >/dev/null 2>&1; then
   echo "Not logged into Azure. Logging in now..."
@@ -29,5 +30,6 @@ fi
 "${SCRIPT_DIR}/setup_external_dns.sh"
 "${SCRIPT_DIR}/setup_install_ho_on_aks.sh"
 "${SCRIPT_DIR}/create_basic_hosted_cluster.sh"
+"${SCRIPT_DIR}/setup_oadp.sh"
 
 set +x

@@ -36,6 +36,12 @@ CNCC_SP_NAME="cncc-$PREFIX"
 NODEPOOL_MGMT="nodepool-mgmt-$PREFIX"
 VELERO_SP_NAME="velero-$PREFIX"
 
+# ------ OADP ------
+export OADP_SP_NAME="oadp-mgencur-sp"
+# Create Service Principals for OADP
+oadp=$(az ad sp create-for-rbac --name "${OADP_SP_NAME}" --create-cert --cert "${OADP_SP_NAME}" --keyvault "${KV_NAME}" --query "{clientID: appId, certificateName: '${OADP_SP_NAME}'}" -o json)
+
+
 # Create Key Vault
 USER_ACCOUNT_ID=$(az ad signed-in-user show | jq -r .id)
 az keyvault create --name $KV_NAME --resource-group $PERSISTENT_RG_NAME --location $LOCATION --enable-rbac-authorization
@@ -55,6 +61,7 @@ velero=$(az ad sp create-for-rbac --name "${VELERO_SP_NAME}" --create-cert --cer
 
 # Set Names
 CERT_NAMES=(
+    "${OADP_SP_NAME}"
     "${AZURE_DISK_SP_NAME}"
     "${AZURE_FILE_SP_NAME}"
     "${IMAGE_REGISTRY_SP_NAME}"
@@ -163,6 +170,12 @@ cat <<EOF > "${CP_OUTPUT_FILE}"
         "certificateName": "${VELERO_SP_NAME}",
         "clientID": "$(echo "$velero" | jq -r '.clientID')",
         "credentialsSecretName": "${VELERO_SP_NAME}-json",
+        "objectEncoding": "utf-8"
+    },
+    "oadp": {
+        "certificateName": "${OADP_SP_NAME}",
+        "clientID": "$(echo "$oadp" | jq -r '.clientID')",
+        "credentialsSecretName": "${OADP_SP_NAME}-json",
         "objectEncoding": "utf-8"
     }
 }
