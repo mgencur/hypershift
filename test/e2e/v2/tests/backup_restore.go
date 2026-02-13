@@ -18,7 +18,6 @@ limitations under the License.
 package tests
 
 import (
-	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -159,20 +158,16 @@ func postRestoreGuestTests() []backuprestore.Test {
 }
 
 var suite = &backuprestore.Suite{
-	Tests: backuprestore.Tests{
-		Setup:                   setup(),
-		PreBackupControlPlane:   preBackupControlPlaneTests(),
-		PreBackupGuest:          preBackupGuestTests(),
-		Continual:               continualTests(),
-		Backup:                  backup(),
-		PostBackupControlPlane:  postBackupControlPlaneTests(),
-		PostBackupGuest:         postBackupGuestTests(),
-		Restore:                 restore(),
-		PostRestoreControlPlane: postRestoreControlPlaneTests(),
-		PostRestoreGuest:        postRestoreGuestTests(),
-	},
+	Setup:                   setup(),
+	PreBackupControlPlane:   preBackupControlPlaneTests(),
+	PreBackupGuest:          preBackupGuestTests(),
+	Continual:               continualTests(),
+	Backup:                  backup(),
+	PostBackupControlPlane:  postBackupControlPlaneTests(),
+	PostBackupGuest:         postBackupGuestTests(),
+	Restore:                 restore(),
+	PostRestoreControlPlane: postRestoreControlPlaneTests(),
+	PostRestoreGuest:        postRestoreGuestTests(),
 }
 
-var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
-	suite.RegisterBackupRestoreTest(context.Background())
-})
+var _ = suite.RegisterBackupRestoreTest()

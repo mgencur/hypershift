@@ -4,8 +4,6 @@
 package backuprestore
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 )
 
@@ -21,10 +19,6 @@ type ContinualTest struct {
 }
 
 type Suite struct {
-	Tests Tests
-}
-
-type Tests struct {
 	Setup                   []Test
 	PreBackupControlPlane   []Test
 	PreBackupGuest          []Test
@@ -37,72 +31,78 @@ type Tests struct {
 	PostRestoreGuest        []Test
 }
 
-func (s *Suite) RegisterBackupRestoreTest(ctx context.Context) {
-	Context("Setup", func() {
-		for _, operation := range s.Tests.Setup {
-			It(operation.Name, operation.Run)
-		}
-	})
+type Tests struct {
+}
 
-	Context("PreBackupControlPlane", func() {
-		for _, operation := range s.Tests.PreBackupControlPlane {
-			It(operation.Name, operation.Run)
-		}
-	})
+func (s *Suite) RegisterBackupRestoreTest() bool {
+	return Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
 
-	Context("PreBackupGuest", func() {
-		for _, operation := range s.Tests.PreBackupGuest {
-			It(operation.Name, operation.Run)
-		}
-	})
+		Context("Setup", func() {
+			for _, operation := range s.Setup {
+				It(operation.Name, operation.Run)
+			}
+		})
 
-	// Setup the continual operations
-	Context("SetupContinual", func() {
-		for _, operation := range s.Tests.Continual {
-			It(operation.Name, operation.Setup)
-		}
-	})
+		Context("PreBackupControlPlane", func() {
+			for _, operation := range s.PreBackupControlPlane {
+				It(operation.Name, operation.Run)
+			}
+		})
 
-	Context("BackupWith", func() {
-		for _, operation := range s.Tests.Backup {
-			It(operation.Name, operation.Run)
-		}
-	})
+		Context("PreBackupGuest", func() {
+			for _, operation := range s.PreBackupGuest {
+				It(operation.Name, operation.Run)
+			}
+		})
 
-	// Verify the continual operations
-	Context("VerifyContinual", func() {
-		for _, operation := range s.Tests.Continual {
-			It(operation.Name, operation.Verify)
-		}
-	})
+		// Setup the continual operations
+		Context("SetupContinual", func() {
+			for _, operation := range s.Continual {
+				It(operation.Name, operation.Setup)
+			}
+		})
 
-	Context("PostBackupControlPlane", func() {
-		for _, operation := range s.Tests.PostBackupControlPlane {
-			It(operation.Name, operation.Run)
-		}
-	})
+		Context("BackupWith", func() {
+			for _, operation := range s.Backup {
+				It(operation.Name, operation.Run)
+			}
+		})
 
-	Context("PostBackupGuest", func() {
-		for _, operation := range s.Tests.PostBackupGuest {
-			It(operation.Name, operation.Run)
-		}
-	})
+		// Verify the continual operations
+		Context("VerifyContinual", func() {
+			for _, operation := range s.Continual {
+				It(operation.Name, operation.Verify)
+			}
+		})
 
-	Context("RestoreWith", func() {
-		for _, operation := range s.Tests.Restore {
-			It(operation.Name, operation.Run)
-		}
-	})
+		Context("PostBackupControlPlane", func() {
+			for _, operation := range s.PostBackupControlPlane {
+				It(operation.Name, operation.Run)
+			}
+		})
 
-	Context("PostRestoreControlPlane", func() {
-		for _, operation := range s.Tests.PostRestoreControlPlane {
-			It(operation.Name, operation.Run)
-		}
-	})
+		Context("PostBackupGuest", func() {
+			for _, operation := range s.PostBackupGuest {
+				It(operation.Name, operation.Run)
+			}
+		})
 
-	Context("PostRestoreGuest", func() {
-		for _, operation := range s.Tests.PostRestoreGuest {
-			It(operation.Name, operation.Run)
-		}
+		Context("RestoreWith", func() {
+			for _, operation := range s.Restore {
+				It(operation.Name, operation.Run)
+			}
+		})
+
+		Context("PostRestoreControlPlane", func() {
+			for _, operation := range s.PostRestoreControlPlane {
+				It(operation.Name, operation.Run)
+			}
+		})
+
+		Context("PostRestoreGuest", func() {
+			for _, operation := range s.PostRestoreGuest {
+				It(operation.Name, operation.Run)
+			}
+		})
 	})
 }
