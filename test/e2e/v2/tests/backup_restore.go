@@ -22,9 +22,12 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
+
 	// . "github.com/onsi/gomega"
 	"github.com/openshift/hypershift/test/e2e/v2/backuprestore"
 )
+
+var prober = backuprestore.NewProberManager()
 
 var suite = &backuprestore.Suite{
 	Tests: backuprestore.Tests{
@@ -58,20 +61,27 @@ var suite = &backuprestore.Suite{
 		Continual: []backuprestore.ContinualTest{
 			{
 				Name: "Continual Test",
+				// This setup function is run in a background goroutine before the backup is taken.
 				Setup: func() {
 					GinkgoWriter.Println("Background operation started at " + time.Now().Format(time.RFC3339))
-					time.Sleep(1 * time.Second)
+					prober.Spawn(func() {
+						GinkgoWriter.Println("Probing at " + time.Now().Format(time.RFC3339))
+						time.Sleep(500 * time.Millisecond)
+						// Fail("test error in continual")
+					})
 					GinkgoWriter.Println("Background operation completed at " + time.Now().Format(time.RFC3339))
 				},
+				// This verify function is run after the backup is taken.
 				Verify: func() {
-					GinkgoWriter.Println("Verify Continual at " + time.Now().Format(time.RFC3339))
+					prober.Stop()
+					GinkgoWriter.Println("Verified Continual test at " + time.Now().Format(time.RFC3339))
 				},
 			}},
 		Backup: []backuprestore.Test{
 			{
 				Name: "BackupWith",
 				Run: func() {
-					time.Sleep(6 * time.Second)
+					time.Sleep(2 * time.Second)
 					GinkgoWriter.Println("BackupOperation at " + time.Now().Format(time.RFC3339))
 				},
 			}},

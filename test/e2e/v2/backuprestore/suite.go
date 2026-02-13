@@ -5,7 +5,6 @@ package backuprestore
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 )
@@ -19,7 +18,6 @@ type ContinualTest struct {
 	Name   string
 	Setup  func()
 	Verify func()
-	doneCh chan struct{}
 }
 
 type Suite struct {
@@ -58,50 +56,23 @@ func (s *Suite) RegisterBackupRestoreTest(ctx context.Context) {
 		}
 	})
 
-	// Initialize the done channel for each continual operation
-	for i := range s.Tests.Continual {
-		s.Tests.Continual[i].doneCh = make(chan struct{})
-	}
-
 	// Setup the continual operations
 	Context("SetupContinual", func() {
 		for _, operation := range s.Tests.Continual {
-			It(operation.Name, func() {
-				GinkgoWriter.Println("Setup Continual started")
-				go func() {
-					defer GinkgoRecover()
-					defer close(operation.doneCh) // Close channel when goroutine completes
-					operation.Setup()
-				}()
-				GinkgoWriter.Println("Setup Continual completed")
-			})
+			It(operation.Name, operation.Setup)
 		}
 	})
 
 	Context("BackupWith", func() {
 		for _, operation := range s.Tests.Backup {
-			It(operation.Name, func() {
-				operation.Run()
-			})
+			It(operation.Name, operation.Run)
 		}
 	})
 
+	// Verify the continual operations
 	Context("VerifyContinual", func() {
 		for _, operation := range s.Tests.Continual {
-			It(operation.Name, func() {
-				// Wait for the continual test goroutine to complete
-				if operation.doneCh != nil {
-					select {
-					case <-operation.doneCh:
-						GinkgoWriter.Println("Successfully waited for Continual completed")
-					case <-time.After(30 * time.Second):
-						GinkgoWriter.Println("Timeout waiting for Continual test to be completed")
-						Fail("Timeout waiting for Continual test to be completed")
-					}
-				} else {
-					GinkgoWriter.Println("Warning: doneCh channel was not initialized")
-				}
-			})
+			It(operation.Name, operation.Verify)
 		}
 	})
 
