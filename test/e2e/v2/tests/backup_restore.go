@@ -26,32 +26,47 @@ import (
 	"github.com/openshift/hypershift/test/e2e/v2/backuprestore"
 )
 
+// Context names for backup/restore test phases
+const (
+	contextSetup                   = "Setup"
+	contextPreBackupControlPlane   = "PreBackupControlPlane"
+	contextPreBackupGuest          = "PreBackupGuest"
+	contextSetupContinual          = "SetupContinual"
+	contextBackup                  = "BackupWith"
+	contextVerifyContinual         = "VerifyContinual"
+	contextPostBackupControlPlane  = "PostBackupControlPlane"
+	contextPostBackupGuest         = "PostBackupGuest"
+	contextRestore                 = "RestoreWith"
+	contextPostRestoreControlPlane = "PostRestoreControlPlane"
+	contextPostRestoreGuest        = "PostRestoreGuest"
+)
+
 var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
 
 	var (
 		prober backuprestore.ProberManager
 	)
 
-	Context("Setup", func() {
+	Context(contextSetup, func() {
 		It("Setup", func() {
 			GinkgoWriter.Println("Setup")
 		})
 	})
 
-	Context("PreBackupControlPlane", func() {
+	Context(contextPreBackupControlPlane, func() {
 		It("PreBackupControlPlane", func() {
 			GinkgoWriter.Println("PreBackupControlPlane")
 		})
 	})
 
-	Context("PreBackupGuest", func() {
+	Context(contextPreBackupGuest, func() {
 		It("PreBackupGuest", func() {
 			GinkgoWriter.Println("PreBackupGuest")
 		})
 	})
 
 	// Setup the continual operations
-	Context("SetupContinual", func() {
+	Context(contextSetupContinual, func() {
 		It("SetupContinual", func() {
 			GinkgoWriter.Println("Background operation started")
 			prober = backuprestore.NewProberManager()
@@ -64,7 +79,7 @@ var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
 		})
 	})
 
-	Context("BackupWith", func() {
+	Context(contextBackup, func() {
 		It("Backup", func() {
 			GinkgoWriter.Println("Backup")
 			time.Sleep(2 * time.Second)
@@ -72,38 +87,38 @@ var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
 	})
 
 	// Verify the continual operations
-	Context("VerifyContinual", func() {
+	Context(contextVerifyContinual, func() {
 		It("VerifyContinual", func() {
 			prober.Stop()
 			GinkgoWriter.Println("Verified Continual test at " + time.Now().Format(time.RFC3339))
 		})
 	})
 
-	Context("PostBackupControlPlane", func() {
+	Context(contextPostBackupControlPlane, func() {
 		It("PostBackupControlPlane", func() {
 			GinkgoWriter.Println("PostBackupControlPlane")
 		})
 	})
 
-	Context("PostBackupGuest", func() {
+	Context(contextPostBackupGuest, func() {
 		It("PostBackupGuest", func() {
 			GinkgoWriter.Println("PostBackupGuest")
 		})
 	})
 
-	Context("RestoreWith", func() {
+	Context(contextRestore, func() {
 		It("Restore", func() {
 			GinkgoWriter.Println("Restore")
 		})
 	})
 
-	Context("PostRestoreControlPlane", func() {
+	Context(contextPostRestoreControlPlane, func() {
 		It("PostRestoreControlPlane", func() {
 			GinkgoWriter.Println("PostRestoreControlPlane")
 		})
 	})
 
-	Context("PostRestoreGuest", func() {
+	Context(contextPostRestoreGuest, func() {
 		It("PostRestoreGuest", func() {
 			GinkgoWriter.Println("PostRestoreGuest")
 		})
