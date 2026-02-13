@@ -2823,33 +2823,30 @@ func deleteIngressRoute53Records(t *testing.T, ctx context.Context, hostedCluste
 	}
 }
 
-func ValidatePublicCluster(t *testing.T, ctx context.Context, client crclient.Client, hostedCluster *hyperv1.HostedCluster, clusterOpts *PlatformAgnosticOptions) {
+// calculateExpectedNodeCount returns the expected number of worker nodes based on
+// NodePool replicas and availability zones.
+func calculateExpectedNodeCount(clusterOpts *PlatformAgnosticOptions) int32 {
+	return clusterOpts.NodePoolReplicas * int32(len(clusterOpts.AWSPlatform.Zones))
+}
+
+// ValidateControlPlane validates management cluster and hosted control plane state.
+// Does NOT require guest cluster connectivity.
+func ValidateControlPlane(t *testing.T, ctx context.Context, mgmtClient crclient.Client, hostedCluster *hyperv1.HostedCluster, clusterOpts *PlatformAgnosticOptions) {
 	g := NewWithT(t)
 
-	// Sanity check the cluster by waiting for the nodes to report ready
-	guestClient := WaitForGuestClient(t, ctx, client, hostedCluster)
-
-	// Create Ingress Route53 Record for OpenStack clusters when AWS credentials are provided
-	if hostedCluster.Spec.Platform.Type == hyperv1.OpenStackPlatform && clusterOpts.AWSPlatform.Credentials.AWSCredentialsFile != "" {
-		if clusterOpts.NodePoolReplicas > 0 {
-			createIngressRoute53Record(t, ctx, guestClient, hostedCluster, clusterOpts)
-		} else {
-			t.Logf("Skipping creating Ingress Route53 Record for HostedCluster %s as there are no worker nodes", hostedCluster.Name)
-		}
-	}
-
-	// Wait for Nodes to be Ready
-	numNodes := clusterOpts.NodePoolReplicas * int32(len(clusterOpts.AWSPlatform.Zones))
-	WaitForNReadyNodes(t, ctx, guestClient, numNodes, hostedCluster.Spec.Platform.Type)
+	// Calculate number of nodes for conditional logic
+	numNodes := calculateExpectedNodeCount(clusterOpts)
 
 	// rollout will not complete if there are no worker nodes.
 	if numNodes > 0 {
-		WaitForImageRollout(t, ctx, client, hostedCluster)
+		WaitForImageRollout(t, ctx, mgmtClient, hostedCluster)
 	}
 
-	err := client.Get(ctx, crclient.ObjectKeyFromObject(hostedCluster), hostedCluster)
+	// Fetch latest HostedCluster from management cluster
+	err := mgmtClient.Get(ctx, crclient.ObjectKeyFromObject(hostedCluster), hostedCluster)
 	g.Expect(err).NotTo(HaveOccurred(), "failed to get hostedcluster")
 
+	// Validate API endpoint configuration
 	serviceStrategy := hyperutil.ServicePublishingStrategyByTypeByHC(hostedCluster, hyperv1.APIServer)
 	g.Expect(serviceStrategy).ToNot(BeNil())
 	if serviceStrategy.Type == hyperv1.Route && serviceStrategy.Route != nil && serviceStrategy.Route.Hostname != "" {
@@ -2865,65 +2862,75 @@ func ValidatePublicCluster(t *testing.T, ctx context.Context, client crclient.Cl
 	if numNodes == 0 {
 		timeout = 20 * time.Minute
 	}
-	ValidateHostedClusterConditions(t, ctx, client, hostedCluster, numNodes > 0, timeout)
+	ValidateHostedClusterConditions(t, ctx, mgmtClient, hostedCluster, numNodes > 0, timeout)
 
-	EnsureNodeCountMatchesNodePoolReplicas(t, ctx, client, guestClient, hostedCluster.Spec.Platform.Type, hostedCluster.Namespace)
-	EnsureNoCrashingPods(t, ctx, client, hostedCluster)
-	EnsureOAPIMountsTrustBundle(t, context.Background(), client, hostedCluster)
-	EnsureGuestWebhooksValidated(t, ctx, guestClient)
+	// Validate control plane pod health
+	EnsureNoCrashingPods(t, ctx, mgmtClient, hostedCluster)
+	EnsureOAPIMountsTrustBundle(t, ctx, mgmtClient, hostedCluster)
 
-	if numNodes > 0 {
-		EnsureNodeCommunication(t, ctx, client, hostedCluster)
-	}
-
+	// AWS platform-specific validation
 	if hostedCluster.Spec.Platform.Type == hyperv1.AWSPlatform {
 		g.Expect(hostedCluster.Spec.Configuration.Ingress.LoadBalancer.Platform.AWS.Type).To(Equal(configv1.NLB))
 	}
+}
+
+// ValidateGuestCluster validates the guest cluster state.
+// Requires guest cluster API accessibility.
+// Returns guest client for subsequent validations.
+func ValidateGuestCluster(t *testing.T, ctx context.Context, mgmtClient crclient.Client, hostedCluster *hyperv1.HostedCluster, clusterOpts *PlatformAgnosticOptions) {
+	// Calculate number of nodes for conditional logic
+	numNodes := calculateExpectedNodeCount(clusterOpts)
+
+	// Establish guest cluster API connection. This must succeed before any guest cluster operations.
+	guestClient := WaitForGuestClient(t, ctx, mgmtClient, hostedCluster)
+
+	// Create Ingress Route53 Record for OpenStack clusters when AWS credentials are provided
+	if hostedCluster.Spec.Platform.Type == hyperv1.OpenStackPlatform && clusterOpts.AWSPlatform.Credentials.AWSCredentialsFile != "" {
+		if numNodes > 0 {
+			createIngressRoute53Record(t, ctx, guestClient, hostedCluster, clusterOpts)
+		} else {
+			t.Logf("Skipping creating Ingress Route53 Record for HostedCluster %s as there are no worker nodes", hostedCluster.Name)
+		}
+	}
+
+	// Wait for Nodes to be Ready
+	WaitForNReadyNodes(t, ctx, guestClient, numNodes, hostedCluster.Spec.Platform.Type)
+
+	// Validate node count matches NodePool replicas
+	EnsureNodeCountMatchesNodePoolReplicas(t, ctx, mgmtClient, guestClient, hostedCluster.Spec.Platform.Type, hostedCluster.Namespace)
+
+	// Validate guest cluster webhooks
+	EnsureGuestWebhooksValidated(t, ctx, guestClient)
+
+	// Validate node communication (requires worker nodes)
+	if numNodes > 0 {
+		EnsureNodeCommunication(t, ctx, mgmtClient, hostedCluster)
+	}
+}
+
+// ValidatePublicCluster performs comprehensive validation of both management cluster
+// and guest cluster state. This is a convenience wrapper around ValidateControlPlane
+// and ValidateGuestCluster that also validates cross-cluster configuration consistency.
+func ValidatePublicCluster(t *testing.T, ctx context.Context, client crclient.Client, hostedCluster *hyperv1.HostedCluster, clusterOpts *PlatformAgnosticOptions) {
+	// Validate management cluster and control plane
+	ValidateControlPlane(t, ctx, client, hostedCluster, clusterOpts)
+
+	// Validate guest cluster
+	ValidateGuestCluster(t, ctx, client, hostedCluster, clusterOpts)
+
 	// Validate configuration status matches between HCP, HC, and guest cluster
-	ValidateConfigurationStatus(t, ctx, client, guestClient, hostedCluster)
+	ValidateConfigurationStatus(t, ctx, client, hostedCluster)
 }
 
 func ValidatePrivateCluster(t *testing.T, ctx context.Context, client crclient.Client, hostedCluster *hyperv1.HostedCluster, clusterOpts *PlatformAgnosticOptions) {
-	g := NewWithT(t)
-
 	// We can't wait for a guest client since we don't have connectivity to the API server
 	WaitForGuestKubeConfig(t, ctx, client, hostedCluster)
 
 	// Ensure NodePools have all Nodes ready.
 	WaitForNodePoolDesiredNodes(t, ctx, client, hostedCluster)
 
-	numNodes := clusterOpts.NodePoolReplicas * int32(len(clusterOpts.AWSPlatform.Zones))
-	// rollout will not complete if there are no worker nodes.
-	if numNodes > 0 {
-		WaitForImageRollout(t, ctx, client, hostedCluster)
-	}
-
-	err := client.Get(ctx, crclient.ObjectKeyFromObject(hostedCluster), hostedCluster)
-	g.Expect(err).NotTo(HaveOccurred(), "failed to get hostedcluster")
-
-	serviceStrategy := hyperutil.ServicePublishingStrategyByTypeByHC(hostedCluster, hyperv1.APIServer)
-	g.Expect(serviceStrategy).ToNot(BeNil())
-	if serviceStrategy.Route != nil && serviceStrategy.Route.Hostname != "" {
-		g.Expect(hostedCluster.Status.ControlPlaneEndpoint.Host).To(Equal(serviceStrategy.Route.Hostname))
-	} else {
-		// sanity check
-		g.Expect(hostedCluster.Status.ControlPlaneEndpoint.Host).ToNot(ContainSubstring("hypershift.local"))
-	}
-
-	// Extend the timeout to 20 minutes if there are no worker nodes as
-	// 10 minutes might not be enough if image pulls are slow.
-	timeout := 10 * time.Minute
-	if numNodes == 0 {
-		timeout = 20 * time.Minute
-	}
-	ValidateHostedClusterConditions(t, ctx, client, hostedCluster, numNodes > 0, timeout)
-
-	EnsureNoCrashingPods(t, ctx, client, hostedCluster)
-	EnsureOAPIMountsTrustBundle(t, context.Background(), client, hostedCluster)
-
-	if hostedCluster.Spec.Platform.Type == hyperv1.AWSPlatform {
-		g.Expect(hostedCluster.Spec.Configuration.Ingress.LoadBalancer.Platform.AWS.Type).To(Equal(configv1.NLB))
-	}
+	// Reuse control plane validation logic
+	ValidateControlPlane(t, ctx, client, hostedCluster, clusterOpts)
 }
 
 func ValidateHostedClusterConditions(t *testing.T, ctx context.Context, client crclient.Client, hostedCluster *hyperv1.HostedCluster, hasWorkerNodes bool, timeout time.Duration) {
@@ -4058,10 +4065,13 @@ func EnsureCNOOperatorConfiguration(t *testing.T, ctx context.Context, mgmtClien
 
 // ValidateConfigurationStatus validates that the HCP and HC configuration status
 // matches the Authentication resource status from the hosted cluster
-func ValidateConfigurationStatus(t *testing.T, ctx context.Context, mgmtClient crclient.Client, guestClient crclient.Client, hostedCluster *hyperv1.HostedCluster) {
+func ValidateConfigurationStatus(t *testing.T, ctx context.Context, mgmtClient crclient.Client, hostedCluster *hyperv1.HostedCluster) {
 	t.Run("ValidateConfigurationStatus", func(t *testing.T) {
 		// Configuration status was added in 4.21
 		AtLeast(t, Version421)
+
+		guestClient := WaitForGuestClient(t, ctx, mgmtClient, hostedCluster)
+
 		g := NewWithT(t)
 
 		// Wait for both HCP and HC configuration status to be populated and validate consistency
