@@ -100,11 +100,25 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextBackup, func() {
 		It("should create backup successfully", func() {
+			By("Creating backup")
 			backupOpts := &backuprestore.OADPBackupOptions{
 				HCName:      testCtx.GetHostedCluster().Name,
 				HCNamespace: testCtx.GetHostedCluster().Namespace,
 			}
 			err := backuprestore.RunOADPBackup(testCtx.Context, GinkgoLogr.WithName("backup-restore"), testCtx.ArtifactDir, backupOpts)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Wait for backup to complete
+			By("Waiting for backup to complete")
+			err = backuprestore.WaitForBackupCompletion(
+				testCtx.Context,
+				testCtx.MgmtClient,
+				backuprestore.VeleroNamespace,
+				backupOpts.Name,
+				testCtx.GetHostedCluster().Name,
+				testCtx.GetHostedCluster().Namespace,
+				backuprestore.BackupTimeout,
+			)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

@@ -16,6 +16,11 @@ import (
 	"github.com/openshift/hypershift/test/integration/framework"
 )
 
+const (
+	BackupTimeout        = 30 * time.Minute
+	DefaultOADPNamespace = "openshift-adp"
+)
+
 var (
 	// hypershiftCLIPath is cached to avoid repeated lookups
 	hypershiftCLIPath string
@@ -98,14 +103,6 @@ type OADPScheduleOptions struct {
 }
 
 // RunOADPBackup executes the "hypershift create oadp-backup" command
-// Example:
-//
-//	err := backuprestore.RunOADPBackup(ctx, logger, "/path/to/artifacts", &backuprestore.OADPBackupOptions{
-//	    HCName:      "prod-cluster",
-//	    HCNamespace: "prod-cluster-ns",
-//	    StorageLocation: "s3-backup",
-//	    TTL: "24h",
-//	})
 func RunOADPBackup(ctx context.Context, logger logr.Logger, artifactDir string, backupOpts *OADPBackupOptions) error {
 	if backupOpts.HCName == "" || backupOpts.HCNamespace == "" {
 		return fmt.Errorf("hc-name and hc-namespace are required")
@@ -134,13 +131,6 @@ func RunOADPBackup(ctx context.Context, logger logr.Logger, artifactDir string, 
 }
 
 // RunOADPRestore executes the "hypershift create oadp-restore" command
-// Example:
-//
-//	err := backuprestore.RunOADPRestore(ctx, logger, "/path/to/artifacts", &backuprestore.OADPRestoreOptions{
-//	    HCName:      "prod-cluster",
-//	    HCNamespace: "prod-cluster-ns",
-//	    FromBackup:  "prod-clusters-abc123",
-//	})
 func RunOADPRestore(ctx context.Context, logger logr.Logger, artifactDir string, restoreOpts *OADPRestoreOptions) error {
 	if restoreOpts.HCName == "" || restoreOpts.HCNamespace == "" {
 		return fmt.Errorf("hc-name and hc-namespace are required")
@@ -181,14 +171,6 @@ func RunOADPRestore(ctx context.Context, logger logr.Logger, artifactDir string,
 }
 
 // RunOADPSchedule executes the "hypershift create oadp-schedule" command
-// Example:
-//
-//	err := backuprestore.RunOADPSchedule(ctx, logger, "/path/to/artifacts", &backuprestore.OADPScheduleOptions{
-//	    HCName:      "prod-cluster",
-//	    HCNamespace: "prod-cluster-ns",
-//	    Schedule:    "0 2 * * *",
-//	    TTL:         "168h",
-//	})
 func RunOADPSchedule(ctx context.Context, logger logr.Logger, artifactDir string, scheduleOpts *OADPScheduleOptions) error {
 	if scheduleOpts.HCName == "" || scheduleOpts.HCNamespace == "" {
 		return fmt.Errorf("hc-name and hc-namespace are required")
@@ -373,7 +355,7 @@ func DefaultOADPBackupOptions(hcName, hcNamespace string) *OADPBackupOptions {
 	return &OADPBackupOptions{
 		HCName:           hcName,
 		HCNamespace:      hcNamespace,
-		OADPNamespace:    "openshift-adp",
+		OADPNamespace:    DefaultOADPNamespace,
 		StorageLocation:  "default",
 		TTL:              (2 * time.Hour).String(),
 		SnapshotMoveData: true,
@@ -386,7 +368,7 @@ func DefaultOADPRestoreOptions(hcName, hcNamespace, fromBackup string) *OADPRest
 		HCName:                 hcName,
 		HCNamespace:            hcNamespace,
 		FromBackup:             fromBackup,
-		OADPNamespace:          "openshift-adp",
+		OADPNamespace:          DefaultOADPNamespace,
 		ExistingResourcePolicy: "update",
 		RestorePVs:             true,
 		PreserveNodePorts:      true,
@@ -399,7 +381,7 @@ func DefaultOADPScheduleOptions(hcName, hcNamespace, schedule string) *OADPSched
 		HCName:          hcName,
 		HCNamespace:     hcNamespace,
 		Schedule:        schedule,
-		OADPNamespace:   "openshift-adp",
+		OADPNamespace:   DefaultOADPNamespace,
 		StorageLocation: "default",
 		TTL:             (2 * time.Hour).String(),
 	}
