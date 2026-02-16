@@ -18,6 +18,7 @@ limitations under the License.
 package tests
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -60,6 +61,12 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 		Expect(hostedCluster).NotTo(BeNil(), "HostedCluster should be set up")
 		if hostedCluster.Spec.Platform.Type != hyperv1.AWSPlatform {
 			Skip("Test is only supported on AWS platform")
+		}
+
+		// Ensure Velero pod is running before proceeding with backup/restore tests
+		err := backuprestore.EnsureVeleroPodRunning(testCtx, backuprestore.VeleroNamespace)
+		if err != nil {
+			Fail(fmt.Sprintf("Velero is not running: %v", err))
 		}
 	})
 
