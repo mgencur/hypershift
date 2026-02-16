@@ -1,8 +1,4 @@
 //go:build e2ev2
-<<<<<<< HEAD
-=======
-// +build e2ev2
->>>>>>> 4e3f19f872 (Validate AWS platform)
 
 /*
 Licensed under the Apache License, Version 2.0 (the "License");
