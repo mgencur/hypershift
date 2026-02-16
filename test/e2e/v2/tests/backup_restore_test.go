@@ -71,25 +71,25 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 	})
 
 	Context(ContextSetup, func() {
-		It("Setup", func() {
+		It("should complete setup successfully", func() {
 		})
 	})
 
 	Context(ContextPreBackupControlPlane, func() {
-		It("PreBackupControlPlane", func() {
+		It("should have all control plane deployments ready before backup", func() {
 			// Validate ETCD cluster is healthy
 			internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
 		})
 	})
 
 	Context(ContextPreBackupGuest, func() {
-		It("PreBackupGuest", func() {
+		It("should have guest cluster ready before backup", func() {
 		})
 	})
 
 	// Setup the continual operations
 	Context(ContextSetupContinual, func() {
-		It("SetupContinual", func() {
+		It("should setup continual operations successfully", func() {
 			prober = backuprestore.NewProberManager()
 			prober.Spawn(func() {
 				GinkgoWriter.Println("Probing at " + time.Now().Format(time.RFC3339))
@@ -99,42 +99,48 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 	})
 
 	Context(ContextBackup, func() {
-		It("Backup", func() {
-			err := internal.WaitForControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+		It("should create backup successfully", func() {
+			backupOpts := &backuprestore.OADPBackupOptions{
+				HCName:      testCtx.GetHostedCluster().Name,
+				HCNamespace: testCtx.GetHostedCluster().Namespace,
+			}
+			err := backuprestore.RunOADPBackup(testCtx.Context, GinkgoLogr.WithName("backup-restore"), testCtx.ArtifactDir, backupOpts)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
 	// Verify the continual operations
 	Context(ContextVerifyContinual, func() {
-		It("VerifyContinual", func() {
+		It("should verify continual operations completed successfully", func() {
 			prober.Stop()
 			GinkgoWriter.Println("Verified Continual test at " + time.Now().Format(time.RFC3339))
 		})
 	})
 
 	Context(ContextPostBackupControlPlane, func() {
-		It("PostBackupControlPlane", func() {
+		It("should have control plane healthy after backup", func() {
 		})
 	})
 
 	Context(ContextPostBackupGuest, func() {
-		It("PostBackupGuest", func() {
+		It("should have guest cluster healthy after backup", func() {
 		})
 	})
 
 	Context(ContextRestore, func() {
-		It("Restore", func() {
+		It("should restore from backup successfully", func() {
+			err := internal.WaitForControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
 	Context(ContextPostRestoreControlPlane, func() {
-		It("PostRestoreControlPlane", func() {
+		It("should have control plane healthy after restore", func() {
 		})
 	})
 
 	Context(ContextPostRestoreGuest, func() {
-		It("PostRestoreGuest", func() {
+		It("should have guest cluster healthy after restore", func() {
 		})
 	})
 })
