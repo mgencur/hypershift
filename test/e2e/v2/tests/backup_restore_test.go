@@ -21,9 +21,8 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
-
-	// . "github.com/onsi/gomega"
 	"github.com/openshift/hypershift/test/e2e/v2/backuprestore"
+	// . "github.com/onsi/gomega"
 )
 
 // Context names for backup/restore test phases
@@ -49,33 +48,28 @@ var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
 
 	Context(contextSetup, func() {
 		It("Setup", func() {
-			GinkgoWriter.Println("Setup")
 		})
 	})
 
 	Context(contextPreBackupControlPlane, func() {
 		It("PreBackupControlPlane", func() {
-			GinkgoWriter.Println("PreBackupControlPlane")
 		})
 	})
 
 	Context(contextPreBackupGuest, func() {
 		It("PreBackupGuest", func() {
-			GinkgoWriter.Println("PreBackupGuest")
 		})
 	})
 
 	// Setup the continual operations
 	Context(contextSetupContinual, func() {
 		It("SetupContinual", func() {
-			GinkgoWriter.Println("Background operation started")
 			prober = backuprestore.NewProberManager()
 			prober.Spawn(func() {
 				GinkgoWriter.Println("Probing at " + time.Now().Format(time.RFC3339))
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(200 * time.Millisecond)
 				// Fail("test error in continual")
 			})
-			GinkgoWriter.Println("Background operation completed")
 		})
 	})
 
@@ -96,31 +90,26 @@ var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
 
 	Context(contextPostBackupControlPlane, func() {
 		It("PostBackupControlPlane", func() {
-			GinkgoWriter.Println("PostBackupControlPlane")
 		})
 	})
 
 	Context(contextPostBackupGuest, func() {
 		It("PostBackupGuest", func() {
-			GinkgoWriter.Println("PostBackupGuest")
 		})
 	})
 
 	Context(contextRestore, func() {
 		It("Restore", func() {
-			GinkgoWriter.Println("Restore")
 		})
 	})
 
 	Context(contextPostRestoreControlPlane, func() {
 		It("PostRestoreControlPlane", func() {
-			GinkgoWriter.Println("PostRestoreControlPlane")
 		})
 	})
 
 	Context(contextPostRestoreGuest, func() {
 		It("PostRestoreGuest", func() {
-			GinkgoWriter.Println("PostRestoreGuest")
 		})
 	})
 })

@@ -12,9 +12,9 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Prober is the interface for a prober, which checks the result of the probes when stopped.
+// Prober is the interface for a prober.
 type Prober interface {
-	// Stop terminates the prober, returning any observed errors.
+	// Stop terminates the prober.
 	Stop()
 }
 
@@ -35,13 +35,15 @@ func (p *prober) Stop() {
 	_ = p.waitGrp.Wait()
 }
 
-// ProberManager is the interface for spawning probers, and checking their results.
+// ProberManager is the interface for spawning probers.
 type ProberManager interface {
 	// The ProberManager should expose a way to collectively reason about spawned
 	// probes as a sort of aggregating Prober.
 	Prober
 
-	// Spawn creates a new Prober
+	// Spawn creates a new Prober. The function passed as argument will be
+	// executed in a separate goroutine repeatedly until the context is cancelled.
+	// It can call verification functions from the Gomega library such as Expect or Fail.
 	Spawn(func()) Prober
 }
 
@@ -52,7 +54,7 @@ type manager struct {
 
 var _ ProberManager = (*manager)(nil)
 
-// Spawn implements ProberManager
+// Spawn implements ProberManager. It spawns a new Prober, adds it to the manager pool and returns it.
 func (m *manager) Spawn(f func()) Prober {
 	m.m.Lock()
 	defer m.m.Unlock()
@@ -84,7 +86,7 @@ func (m *manager) Spawn(f func()) Prober {
 	return p
 }
 
-// Stop implements ProberManager
+// Stop implements ProberManager. It stops all probers in the manager pool.
 func (m *manager) Stop() {
 	m.m.Lock()
 	defer m.m.Unlock()
