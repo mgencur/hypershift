@@ -61,6 +61,13 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+# Set Ginkgo parallelism: use -p by default, or --procs if PARALLELISM is defined
+ifdef PARALLELISM
+    GINKGO_PARALLELISM := --procs=$(PARALLELISM)
+else
+    GINKGO_PARALLELISM := -p
+endif
+
 # Change HOME to writeable location in CI for staticcheck
 ifeq ("/","${HOME}")
 HOME=/tmp
@@ -311,6 +318,7 @@ install-ginkgo:
 	$(GO) install github.com/onsi/ginkgo/v2/ginkgo
 
 GINKGO_FLAGS = --vv \
+    $(GINKGO_PARALLELISM) \
 	--tags=e2ev2 \
 	--no-color=$(OPENSHIFT_CI) \
 	--junit-report="$(ARTIFACT_DIR)/junit.xml" \
