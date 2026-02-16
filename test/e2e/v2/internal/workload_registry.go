@@ -6,7 +6,11 @@
 package internal
 
 import (
+	"context"
 	"fmt"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 	supportutil "github.com/openshift/hypershift/support/util"
@@ -509,8 +513,22 @@ func ValidateControlPlaneDeploymentsReadiness(testCtx *TestContext) error {
 			return fmt.Errorf("failed to get deployment %s: %w", workload.Name, err)
 		}
 		if !supportutil.IsDeploymentReady(testCtx, deployment) {
-			return fmt.Errorf("deployment %s is not ready", workload.Name)
+			return fmt.Errorf("deployment %s is not ready, desired: %d, available: %d, ready: %d", workload.Name, deployment.Spec.Replicas, deployment.Status.AvailableReplicas, deployment.Status.ReadyReplicas)
 		}
+	}
+	return nil
+}
+
+func WaitForControlPlaneDeploymentsReadiness(testCtx *TestContext) error {
+	err := wait.PollUntilContextTimeout(testCtx.Context, time.Second*10, time.Minute*10, true, func(ctx context.Context) (bool, error) {
+		err := ValidateControlPlaneDeploymentsReadiness(testCtx)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to wait for control plane deployments to be ready: %w", err)
 	}
 	return nil
 }

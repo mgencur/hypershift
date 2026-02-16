@@ -87,17 +87,13 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 			prober.Spawn(func() {
 				GinkgoWriter.Println("Probing at " + time.Now().Format(time.RFC3339))
 				time.Sleep(200 * time.Millisecond)
-				// Fail("test error in continual")
 			})
 		})
 	})
 
 	Context(ContextBackup, func() {
 		It("Backup", func() {
-			GinkgoWriter.Println("Backup")
-			time.Sleep(2 * time.Second)
-			// TODO: Wait for the following to complete?
-			internal.ValidateControlPlaneDeploymentsReadiness(testCtx)
+			internal.WaitForControlPlaneDeploymentsReadiness(testCtx)
 		})
 	})
 
