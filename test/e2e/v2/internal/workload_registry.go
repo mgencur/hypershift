@@ -6,7 +6,12 @@
 package internal
 
 import (
+	"fmt"
+
 	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	supportutil "github.com/openshift/hypershift/support/util"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 // WorkloadSpec represents a control plane workload with its pod selector
@@ -473,4 +478,39 @@ func GetControlPlaneWorkloads() []WorkloadSpec {
 			},
 		},
 	}
+}
+
+// ShouldSkipWorkloadForPlatform determines whether the workload should be skipped
+// based on whether it's platform-specific and doesn't match the hosted cluster platform.
+func ShouldSkipWorkloadForPlatform(workload WorkloadSpec, hostedCluster *hyperv1.HostedCluster) bool {
+	if hostedCluster == nil {
+		return false // Can't determine platform, don't skip
+	}
+	clusterPlatform := hostedCluster.Spec.Platform.Type
+	// Skip if workload is platform-specific and doesn't match cluster platform
+	if workload.Platform != nil && *workload.Platform != clusterPlatform {
+		return true
+	}
+	return false
+}
+
+func ValidateControlPlaneDeploymentsReadiness(testCtx *TestContext) error {
+	workloads := GetControlPlaneWorkloads()
+	for _, workload := range workloads {
+		if ShouldSkipWorkloadForPlatform(workload, testCtx.GetHostedCluster()) {
+			continue
+		}
+		deployment := &appsv1.Deployment{}
+		err := testCtx.MgmtClient.Get(testCtx, types.NamespacedName{
+			Namespace: testCtx.ControlPlaneNamespace,
+			Name:      workload.Name,
+		}, deployment)
+		if err != nil {
+			return fmt.Errorf("failed to get deployment %s: %w", workload.Name, err)
+		}
+		if !supportutil.IsDeploymentReady(testCtx, deployment) {
+			return fmt.Errorf("deployment %s is not ready", workload.Name)
+		}
+	}
+	return nil
 }

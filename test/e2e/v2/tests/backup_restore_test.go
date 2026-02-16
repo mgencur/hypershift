@@ -21,6 +21,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
+
 	"github.com/openshift/hypershift/test/e2e/v2/backuprestore"
 
 	. "github.com/onsi/gomega"
@@ -46,11 +47,12 @@ const (
 var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	var (
-		prober backuprestore.ProberManager
+		prober  backuprestore.ProberManager
+		testCtx *internal.TestContext
 	)
 
 	BeforeEach(func() {
-		testCtx := internal.GetTestContext()
+		testCtx = internal.GetTestContext()
 		if err := testCtx.ValidateControlPlaneNamespace(); err != nil {
 			AbortSuite(err.Error())
 		}
@@ -68,6 +70,8 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextPreBackupControlPlane, func() {
 		It("PreBackupControlPlane", func() {
+			// Validate ETCD cluster is healthy
+			internal.ValidateControlPlaneDeploymentsReadiness(testCtx)
 		})
 	})
 
@@ -92,6 +96,8 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 		It("Backup", func() {
 			GinkgoWriter.Println("Backup")
 			time.Sleep(2 * time.Second)
+			// TODO: Wait for the following to complete?
+			internal.ValidateControlPlaneDeploymentsReadiness(testCtx)
 		})
 	})
 
