@@ -9,6 +9,7 @@ CRD_OPTIONS ?= "crd"
 # Runtime CLI to use for building and pushing images
 RUNTIME ?= $(shell sh hack/utils.sh get_container_engine)
 
+ARTIFACT_DIR ?= /tmp
 TOOLS_DIR=./hack/tools
 BIN_DIR=bin
 TOOLS_BIN_DIR := $(TOOLS_DIR)/$(BIN_DIR)
@@ -44,6 +45,14 @@ OUT_DIR ?= bin
 # run the HO locally
 HYPERSHIFT_INSTALL_AWS := ./hack/dev/aws/hypershft-install-aws.sh
 RUN_OPERATOR_LOCALLY_AWS := ./hack/dev/aws/run-operator-locally-aws-dev.sh
+
+OPENSHIFT_CI ?= false
+FAIL_FAST ?= true
+
+# Do not fail fast in OpenShift CI, it's expensive to start the cluster, run all tests and report the results.
+ifeq ($(OPENSHIFT_CI),true)
+	FAIL_FAST = false
+endif
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -296,6 +305,25 @@ reqserving-e2e:
 .PHONY: e2ev2
 e2ev2:
 	$(GO_E2EV2_RECIPE) -o bin/test-e2e-v2 ./test/e2e/v2/tests
+
+.PHONY: install-ginkgo
+install-ginkgo:
+	$(GO) install github.com/onsi/ginkgo/v2/ginkgo
+
+GINKGO_FLAGS = --vv \
+	--tags=e2ev2 \
+	--no-color=$(OPENSHIFT_CI) \
+	--junit-report="$(ARTIFACT_DIR)/junit.xml" \
+	--fail-fast=$(FAIL_FAST) \
+	--timeout=2h
+
+.PHONY: test-e2ev2
+test-e2ev2: install-ginkgo
+	ginkgo run $(GINKGO_FLAGS) ./test/e2e/v2/tests
+
+.PHONY: test-backup-restore
+test-backup-restore: install-ginkgo
+	ginkgo run $(GINKGO_FLAGS) --label-filter="backup-restore" ./test/e2e/v2/tests
 
 # Run go fmt against code
 .PHONY: fmt
