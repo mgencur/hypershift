@@ -27,17 +27,17 @@ import (
 
 // Context names for backup/restore test phases
 const (
-	contextSetup                   = "Setup"
-	contextPreBackupControlPlane   = "PreBackupControlPlane"
-	contextPreBackupGuest          = "PreBackupGuest"
-	contextSetupContinual          = "SetupContinual"
-	contextBackup                  = "BackupWith"
-	contextVerifyContinual         = "VerifyContinual"
-	contextPostBackupControlPlane  = "PostBackupControlPlane"
-	contextPostBackupGuest         = "PostBackupGuest"
-	contextRestore                 = "RestoreWith"
-	contextPostRestoreControlPlane = "PostRestoreControlPlane"
-	contextPostRestoreGuest        = "PostRestoreGuest"
+	ContextSetup                   = "Setup"
+	ContextPreBackupControlPlane   = "PreBackupControlPlane"
+	ContextPreBackupGuest          = "PreBackupGuest"
+	ContextSetupContinual          = "SetupContinual"
+	ContextBackup                  = "BackupWith"
+	ContextVerifyContinual         = "VerifyContinual"
+	ContextPostBackupControlPlane  = "PostBackupControlPlane"
+	ContextPostBackupGuest         = "PostBackupGuest"
+	ContextRestore                 = "RestoreWith"
+	ContextPostRestoreControlPlane = "PostRestoreControlPlane"
+	ContextPostRestoreGuest        = "PostRestoreGuest"
 )
 
 var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
@@ -46,23 +46,23 @@ var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
 		prober backuprestore.ProberManager
 	)
 
-	Context(contextSetup, func() {
+	Context(ContextSetup, func() {
 		It("Setup", func() {
 		})
 	})
 
-	Context(contextPreBackupControlPlane, func() {
+	Context(ContextPreBackupControlPlane, func() {
 		It("PreBackupControlPlane", func() {
 		})
 	})
 
-	Context(contextPreBackupGuest, func() {
+	Context(ContextPreBackupGuest, func() {
 		It("PreBackupGuest", func() {
 		})
 	})
 
 	// Setup the continual operations
-	Context(contextSetupContinual, func() {
+	Context(ContextSetupContinual, func() {
 		It("SetupContinual", func() {
 			prober = backuprestore.NewProberManager()
 			prober.Spawn(func() {
@@ -73,7 +73,7 @@ var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
 		})
 	})
 
-	Context(contextBackup, func() {
+	Context(ContextBackup, func() {
 		It("Backup", func() {
 			GinkgoWriter.Println("Backup")
 			time.Sleep(2 * time.Second)
@@ -81,34 +81,34 @@ var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
 	})
 
 	// Verify the continual operations
-	Context(contextVerifyContinual, func() {
+	Context(ContextVerifyContinual, func() {
 		It("VerifyContinual", func() {
 			prober.Stop()
 			GinkgoWriter.Println("Verified Continual test at " + time.Now().Format(time.RFC3339))
 		})
 	})
 
-	Context(contextPostBackupControlPlane, func() {
+	Context(ContextPostBackupControlPlane, func() {
 		It("PostBackupControlPlane", func() {
 		})
 	})
 
-	Context(contextPostBackupGuest, func() {
+	Context(ContextPostBackupGuest, func() {
 		It("PostBackupGuest", func() {
 		})
 	})
 
-	Context(contextRestore, func() {
+	Context(ContextRestore, func() {
 		It("Restore", func() {
 		})
 	})
 
-	Context(contextPostRestoreControlPlane, func() {
+	Context(ContextPostRestoreControlPlane, func() {
 		It("PostRestoreControlPlane", func() {
 		})
 	})
 
-	Context(contextPostRestoreGuest, func() {
+	Context(ContextPostRestoreGuest, func() {
 		It("PostRestoreGuest", func() {
 		})
 	})
