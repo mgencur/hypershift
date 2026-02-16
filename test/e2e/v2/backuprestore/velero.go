@@ -1,5 +1,4 @@
 //go:build e2ev2
-// +build e2ev2
 
 package backuprestore
 
@@ -13,7 +12,7 @@ import (
 
 const (
 	// VeleroNamespace is the namespace where Velero is deployed
-	VeleroNamespace = "oadp-operator"
+	VeleroNamespace = "openshift-adp"
 )
 
 // EnsureVeleroPodRunning checks if the Velero pod is running in the specified namespace.

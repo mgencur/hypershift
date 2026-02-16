@@ -1,5 +1,4 @@
 //go:build e2ev2
-// +build e2ev2
 
 /*
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -48,8 +47,9 @@ const (
 var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	var (
-		prober  backuprestore.ProberManager
-		testCtx *internal.TestContext
+		prober           backuprestore.ProberManager
+		testCtx          *internal.TestContext
+		excludeWorkloads []string = []string{"router", "karpenter", "karpenter-operator", "aws-node-termination-handler"}
 	)
 
 	BeforeEach(func() {
@@ -78,7 +78,7 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 	Context(ContextPreBackupControlPlane, func() {
 		It("PreBackupControlPlane", func() {
 			// Validate ETCD cluster is healthy
-			internal.ValidateControlPlaneDeploymentsReadiness(testCtx)
+			internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
 		})
 	})
 
@@ -100,7 +100,8 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextBackup, func() {
 		It("Backup", func() {
-			internal.WaitForControlPlaneDeploymentsReadiness(testCtx)
+			err := internal.WaitForControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 

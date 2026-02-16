@@ -1,5 +1,4 @@
 //go:build e2ev2
-// +build e2ev2
 
 package backuprestore
 

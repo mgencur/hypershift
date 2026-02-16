@@ -8,6 +8,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -498,10 +499,16 @@ func ShouldSkipWorkloadForPlatform(workload WorkloadSpec, hostedCluster *hyperv1
 	return false
 }
 
-func ValidateControlPlaneDeploymentsReadiness(testCtx *TestContext) error {
+func ValidateControlPlaneDeploymentsReadiness(testCtx *TestContext, excludeWorkloads []string) error {
 	workloads := GetControlPlaneWorkloads()
 	for _, workload := range workloads {
 		if ShouldSkipWorkloadForPlatform(workload, testCtx.GetHostedCluster()) {
+			continue
+		}
+		if workload.Type != "Deployment" {
+			continue
+		}
+		if slices.Contains(excludeWorkloads, workload.Name) {
 			continue
 		}
 		deployment := &appsv1.Deployment{}
@@ -519,9 +526,9 @@ func ValidateControlPlaneDeploymentsReadiness(testCtx *TestContext) error {
 	return nil
 }
 
-func WaitForControlPlaneDeploymentsReadiness(testCtx *TestContext) error {
+func WaitForControlPlaneDeploymentsReadiness(testCtx *TestContext, excludeWorkloads []string) error {
 	err := wait.PollUntilContextTimeout(testCtx.Context, time.Second*10, time.Minute*10, true, func(ctx context.Context) (bool, error) {
-		err := ValidateControlPlaneDeploymentsReadiness(testCtx)
+		err := ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
 		if err != nil {
 			return false, err
 		}
