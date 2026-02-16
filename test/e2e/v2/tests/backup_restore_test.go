@@ -22,7 +22,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/openshift/hypershift/test/e2e/v2/backuprestore"
-	// . "github.com/onsi/gomega"
+
+	. "github.com/onsi/gomega"
+	hyperv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
+	"github.com/openshift/hypershift/test/e2e/v2/internal"
 )
 
 // Context names for backup/restore test phases
@@ -40,11 +43,25 @@ const (
 	ContextPostRestoreGuest        = "PostRestoreGuest"
 )
 
-var _ = Describe("BackupRestore", Label("backup-restore"), Ordered, func() {
+var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	var (
 		prober backuprestore.ProberManager
 	)
+
+	BeforeEach(func() {
+		testCtx := internal.GetTestContext()
+
+		if err := testCtx.ValidateControlPlaneNamespace(); err != nil {
+			AbortSuite(err.Error())
+		}
+
+		hostedCluster := testCtx.GetHostedCluster()
+		Expect(hostedCluster).NotTo(BeNil(), "HostedCluster should be set up")
+		if hostedCluster.Spec.Platform.Type != hyperv1.AWSPlatform {
+			Skip("BackupRestoreAWS is only supported on AWS platform")
+		}
+	})
 
 	Context(ContextSetup, func() {
 		It("Setup", func() {

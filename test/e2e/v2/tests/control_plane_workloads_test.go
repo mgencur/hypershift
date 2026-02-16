@@ -855,11 +855,8 @@ var _ = Describe("Control Plane Workloads", Label("control-plane-workloads"), fu
 		testCtx = internal.GetTestContext()
 		Expect(testCtx).NotTo(BeNil(), "test context should be set up in BeforeSuite")
 
-		// Validate ControlPlaneNamespace is set
-		if testCtx.ControlPlaneNamespace == "" {
-			AbortSuite(fmt.Sprintf("ControlPlaneNamespace is required but not set. Please set the following environment variables:\n" +
-				"  E2E_HOSTED_CLUSTER_NAME - Name of the HostedCluster to test\n" +
-				"  E2E_HOSTED_CLUSTER_NAMESPACE - Namespace of the HostedCluster to test"))
+		if err := testCtx.ValidateControlPlaneNamespace(); err != nil {
+			AbortSuite(err.Error())
 		}
 	})
 

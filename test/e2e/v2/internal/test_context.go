@@ -1,4 +1,8 @@
 //go:build e2ev2
+<<<<<<< HEAD
+=======
+// +build e2ev2
+>>>>>>> 4e3f19f872 (Validate AWS platform)
 
 /*
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -132,4 +136,15 @@ func SetupTestContextFromEnv(ctx context.Context) (*TestContext, error) {
 	}
 
 	return testCtx, nil
+}
+
+// ValidateControlPlaneNamespace checks if the ControlPlaneNamespace is set in the test context.
+// Returns an error with a helpful message if not set.
+func (tc *TestContext) ValidateControlPlaneNamespace() error {
+	if tc.ControlPlaneNamespace == "" {
+		return fmt.Errorf("ControlPlaneNamespace is required but not set. Please set the following environment variables:\n" +
+			"  E2E_HOSTED_CLUSTER_NAME - Name of the HostedCluster to test\n" +
+			"  E2E_HOSTED_CLUSTER_NAMESPACE - Namespace of the HostedCluster to test")
+	}
+	return nil
 }
