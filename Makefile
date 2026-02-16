@@ -317,7 +317,7 @@ e2ev2:
 install-ginkgo:
 	$(GO) install github.com/onsi/ginkgo/v2/ginkgo
 
-GINKGO_FLAGS = --vv \
+GINKGO_FLAGS = \
     $(GINKGO_PARALLELISM) \
 	--tags=e2ev2 \
 	--no-color=$(OPENSHIFT_CI) \
@@ -327,7 +327,7 @@ GINKGO_FLAGS = --vv \
 
 .PHONY: test-e2ev2
 test-e2ev2: install-ginkgo
-	ginkgo run $(GINKGO_FLAGS) ./test/e2e/v2/tests
+	ginkgo run $(GINKGO_FLAGS) --label-filter="!backup-restore" ./test/e2e/v2/tests
 
 .PHONY: test-backup-restore
 test-backup-restore: install-ginkgo

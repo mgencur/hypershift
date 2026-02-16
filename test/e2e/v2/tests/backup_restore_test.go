@@ -51,15 +51,13 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	BeforeEach(func() {
 		testCtx := internal.GetTestContext()
-
 		if err := testCtx.ValidateControlPlaneNamespace(); err != nil {
 			AbortSuite(err.Error())
 		}
-
 		hostedCluster := testCtx.GetHostedCluster()
 		Expect(hostedCluster).NotTo(BeNil(), "HostedCluster should be set up")
 		if hostedCluster.Spec.Platform.Type != hyperv1.AWSPlatform {
-			Skip("BackupRestoreAWS is only supported on AWS platform")
+			Skip("Test is only supported on AWS platform")
 		}
 	})
 
