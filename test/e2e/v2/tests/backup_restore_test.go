@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 
+	"github.com/openshift/hypershift/cmd/oadp"
 	"github.com/openshift/hypershift/test/e2e/v2/backuprestore"
 
 	. "github.com/onsi/gomega"
@@ -49,6 +50,7 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 	var (
 		prober           backuprestore.ProberManager
 		testCtx          *internal.TestContext
+		backupName       string
 		excludeWorkloads []string = []string{"router", "karpenter", "karpenter-operator", "aws-node-termination-handler"}
 	)
 
@@ -93,7 +95,7 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 			prober = backuprestore.NewProberManager()
 			prober.Spawn(func() {
 				GinkgoWriter.Println("Probing at " + time.Now().Format(time.RFC3339))
-				time.Sleep(200 * time.Millisecond)
+				time.Sleep(1 * time.Second)
 			})
 		})
 	})
@@ -101,9 +103,11 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 	Context(ContextBackup, func() {
 		It("should create backup successfully", func() {
 			By("Creating backup")
+			backupName = oadp.GenerateBackupName(testCtx.GetHostedCluster().Name, testCtx.GetHostedCluster().Namespace)
 			backupOpts := &backuprestore.OADPBackupOptions{
 				HCName:          testCtx.GetHostedCluster().Name,
 				HCNamespace:     testCtx.GetHostedCluster().Namespace,
+				Name:            backupName,
 				StorageLocation: testCtx.GetHostedCluster().Name,
 			}
 			err := backuprestore.RunOADPBackup(testCtx.Context, GinkgoLogr.WithName("backup-restore"), testCtx.ArtifactDir, backupOpts)
@@ -144,7 +148,17 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextRestore, func() {
 		It("should restore from backup successfully", func() {
-			err := internal.WaitForControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			By("Creating Restore")
+			restoreOpts := &backuprestore.OADPRestoreOptions{
+				HCName:      testCtx.GetHostedCluster().Name,
+				HCNamespace: testCtx.GetHostedCluster().Namespace,
+				FromBackup:  backupName,
+			}
+			err := backuprestore.RunOADPRestore(testCtx.Context, GinkgoLogr.WithName("backup-restore"), testCtx.ArtifactDir, restoreOpts)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Waiting for control plane deployments to be ready")
+			err = internal.WaitForControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
