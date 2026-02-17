@@ -78,11 +78,14 @@ func WaitForBackupCompletion(ctx context.Context, client crclient.Client, oadpNa
 		}
 	}
 
-	// Wait for backup to complete using Gomega Eventually
-	Eventually(isBackupDone(ctx, client, oadpNamespace, backupName), timeout, 10*time.Second).Should(BeTrue(),
+	Eventually(isBackupInFinalState(ctx, client, oadpNamespace, backupName), timeout, 10*time.Second).Should(BeTrue(),
 		fmt.Sprintf("backup %s should complete within %v", backupName, timeout))
 
-	// Verify backup completed successfully
+	return ensureBackupSuccessful(ctx, client, oadpNamespace, backupName)
+}
+
+// ensureBackupSuccessful verifies that a backup completed successfully.
+func ensureBackupSuccessful(ctx context.Context, client crclient.Client, oadpNamespace string, backupName string) error {
 	backup, err := getBackup(ctx, client, oadpNamespace, backupName)
 	if err != nil {
 		return fmt.Errorf("failed to get backup %s: %w", backupName, err)
@@ -151,8 +154,9 @@ func getBackup(ctx context.Context, client crclient.Client, namespace string, na
 	return backup, nil
 }
 
-// isBackupDone returns a function that checks if a backup is done
-func isBackupDone(ctx context.Context, client crclient.Client, veleroNamespace, name string) func() bool {
+// isBackupInFinalState returns a function that checks if a backup is in a final state. This
+// can be both success and failure.
+func isBackupInFinalState(ctx context.Context, client crclient.Client, veleroNamespace, name string) func() bool {
 	return func() bool {
 		backup, err := getBackup(ctx, client, veleroNamespace, name)
 		if err != nil {

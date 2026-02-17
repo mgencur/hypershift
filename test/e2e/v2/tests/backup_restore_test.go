@@ -102,8 +102,9 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 		It("should create backup successfully", func() {
 			By("Creating backup")
 			backupOpts := &backuprestore.OADPBackupOptions{
-				HCName:      testCtx.GetHostedCluster().Name,
-				HCNamespace: testCtx.GetHostedCluster().Namespace,
+				HCName:          testCtx.GetHostedCluster().Name,
+				HCNamespace:     testCtx.GetHostedCluster().Namespace,
+				StorageLocation: testCtx.GetHostedCluster().Name,
 			}
 			err := backuprestore.RunOADPBackup(testCtx.Context, GinkgoLogr.WithName("backup-restore"), testCtx.ArtifactDir, backupOpts)
 			Expect(err).NotTo(HaveOccurred())
