@@ -87,6 +87,7 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextPreBackupGuest, func() {
 		It("should have guest cluster ready before backup", func() {
+			Skip("Skipping due to OCPBUGS-59876")
 		})
 	})
 
@@ -135,11 +136,13 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextPostBackupControlPlane, func() {
 		It("should have control plane healthy after backup", func() {
+			internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
 		})
 	})
 
 	Context(ContextPostBackupGuest, func() {
 		It("should have guest cluster healthy after backup", func() {
+			Skip("Skipping due to OCPBUGS-59876")
 		})
 	})
 
@@ -173,11 +176,13 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextPostRestoreControlPlane, func() {
 		It("should have control plane healthy after restore", func() {
+			internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
 		})
 	})
 
 	Context(ContextPostRestoreGuest, func() {
 		It("should have guest cluster healthy after restore", func() {
+			Skip("Skipping due to OCPBUGS-59876")
 		})
 	})
 })
