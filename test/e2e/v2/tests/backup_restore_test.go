@@ -43,6 +43,7 @@ const (
 	ContextRestore                 = "RestoreWith"
 	ContextPostRestoreControlPlane = "PostRestoreControlPlane"
 	ContextPostRestoreGuest        = "PostRestoreGuest"
+	ContextBreakHostedCluster      = "BreakHostedCluster"
 )
 
 var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
@@ -146,6 +147,13 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 		})
 	})
 
+	Context(ContextBreakHostedCluster, func() {
+		It("should break hosted cluster", func() {
+			err := backuprestore.BreakHostedCluster(testCtx)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+
 	Context(ContextRestore, func() {
 		It("should restore from backup successfully", func() {
 			By("Creating Restore")
@@ -176,7 +184,8 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextPostRestoreControlPlane, func() {
 		It("should have control plane healthy after restore", func() {
-			internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			err := internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
