@@ -526,16 +526,16 @@ func ValidateControlPlaneDeploymentsReadiness(testCtx *TestContext, excludeWorkl
 	return nil
 }
 
-func WaitForControlPlaneDeploymentsReadiness(testCtx *TestContext, excludeWorkloads []string) error {
-	err := wait.PollUntilContextTimeout(testCtx.Context, time.Second*10, time.Minute*10, true, func(ctx context.Context) (bool, error) {
-		err := ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
-		if err != nil {
-			return false, err
+func WaitForControlPlaneDeploymentsReadiness(testCtx *TestContext, timeout time.Duration, excludeWorkloads []string) error {
+	var lastErr error
+	if err := wait.PollUntilContextTimeout(testCtx.Context, time.Second*10, timeout, true, func(ctx context.Context) (bool, error) {
+		lastErr = ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+		if lastErr != nil {
+			return false, nil
 		}
 		return true, nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to wait for control plane deployments to be ready: %w", err)
+	}); err != nil {
+		return fmt.Errorf("failed to wait for control plane deployments to be ready: %w", lastErr)
 	}
 	return nil
 }

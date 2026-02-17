@@ -177,7 +177,7 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for control plane deployments to be ready")
-			err = internal.WaitForControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			err = internal.WaitForControlPlaneDeploymentsReadiness(testCtx, backuprestore.RestoreTimeout, excludeWorkloads)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
