@@ -499,43 +499,85 @@ func ShouldSkipWorkloadForPlatform(workload WorkloadSpec, hostedCluster *hyperv1
 	return false
 }
 
-func ValidateControlPlaneDeploymentsReadiness(testCtx *TestContext, excludeWorkloads []string) error {
+// validateControlPlaneWorkloadsByType validates control plane workloads of specified types.
+// This is a generic function that handles both Deployments and StatefulSets.
+func validateControlPlaneWorkloadsByType(testCtx *TestContext, workloadTypes []string, excludeWorkloads []string) error {
 	workloads := GetControlPlaneWorkloads()
 	for _, workload := range workloads {
 		if ShouldSkipWorkloadForPlatform(workload, testCtx.GetHostedCluster()) {
 			continue
 		}
-		if workload.Type != "Deployment" {
+		if !slices.Contains(workloadTypes, workload.Type) {
 			continue
 		}
 		if slices.Contains(excludeWorkloads, workload.Name) {
 			continue
 		}
-		deployment := &appsv1.Deployment{}
-		err := testCtx.MgmtClient.Get(testCtx, types.NamespacedName{
-			Namespace: testCtx.ControlPlaneNamespace,
-			Name:      workload.Name,
-		}, deployment)
-		if err != nil {
-			return fmt.Errorf("failed to get deployment %s: %w", workload.Name, err)
-		}
-		if !supportutil.IsDeploymentReady(testCtx, deployment) {
-			return fmt.Errorf("deployment %s is not ready, desired: %d, available: %d, ready: %d", workload.Name, deployment.Spec.Replicas, deployment.Status.AvailableReplicas, deployment.Status.ReadyReplicas)
+
+		switch workload.Type {
+		case "Deployment":
+			deployment := &appsv1.Deployment{}
+			err := testCtx.MgmtClient.Get(testCtx, types.NamespacedName{
+				Namespace: testCtx.ControlPlaneNamespace,
+				Name:      workload.Name,
+			}, deployment)
+			if err != nil {
+				return fmt.Errorf("failed to get deployment %s: %w", workload.Name, err)
+			}
+			if !supportutil.IsDeploymentReady(testCtx, deployment) {
+				return fmt.Errorf("deployment %s is not ready, desired: %d, available: %d, ready: %d",
+					workload.Name, deployment.Spec.Replicas, deployment.Status.AvailableReplicas, deployment.Status.ReadyReplicas)
+			}
+
+		case "StatefulSet":
+			statefulSet := &appsv1.StatefulSet{}
+			err := testCtx.MgmtClient.Get(testCtx, types.NamespacedName{
+				Namespace: testCtx.ControlPlaneNamespace,
+				Name:      workload.Name,
+			}, statefulSet)
+			if err != nil {
+				return fmt.Errorf("failed to get statefulset %s: %w", workload.Name, err)
+			}
+			if !supportutil.IsStatefulSetReady(testCtx, statefulSet) {
+				return fmt.Errorf("statefulset %s is not ready, desired: %d, available: %d, ready: %d",
+					workload.Name, statefulSet.Spec.Replicas, statefulSet.Status.AvailableReplicas, statefulSet.Status.ReadyReplicas)
+			}
 		}
 	}
 	return nil
 }
 
-func WaitForControlPlaneDeploymentsReadiness(testCtx *TestContext, timeout time.Duration, excludeWorkloads []string) error {
+// ValidateControlPlaneDeploymentsReadiness validates that all control plane Deployments are ready.
+func ValidateControlPlaneDeploymentsReadiness(testCtx *TestContext, excludeWorkloads []string) error {
+	return validateControlPlaneWorkloadsByType(testCtx, []string{"Deployment"}, excludeWorkloads)
+}
+
+// ValidateControlPlaneStatefulSetsReadiness validates that all control plane StatefulSets are ready.
+func ValidateControlPlaneStatefulSetsReadiness(testCtx *TestContext, excludeWorkloads []string) error {
+	return validateControlPlaneWorkloadsByType(testCtx, []string{"StatefulSet"}, excludeWorkloads)
+}
+
+// waitForControlPlaneWorkloadsByType waits for control plane workloads of specified types to be ready.
+func waitForControlPlaneWorkloadsByType(testCtx *TestContext, timeout time.Duration, workloadTypes []string, excludeWorkloads []string) error {
 	var lastErr error
 	if err := wait.PollUntilContextTimeout(testCtx.Context, time.Second*10, timeout, true, func(ctx context.Context) (bool, error) {
-		lastErr = ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+		lastErr = validateControlPlaneWorkloadsByType(testCtx, workloadTypes, excludeWorkloads)
 		if lastErr != nil {
 			return false, nil
 		}
 		return true, nil
 	}); err != nil {
-		return fmt.Errorf("failed to wait for control plane deployments to be ready: %w", lastErr)
+		return fmt.Errorf("failed to wait for control plane workloads to be ready: %w", lastErr)
 	}
 	return nil
+}
+
+// WaitForControlPlaneDeploymentsReadiness waits for all control plane Deployments to be ready.
+func WaitForControlPlaneDeploymentsReadiness(testCtx *TestContext, timeout time.Duration, excludeWorkloads []string) error {
+	return waitForControlPlaneWorkloadsByType(testCtx, timeout, []string{"Deployment"}, excludeWorkloads)
+}
+
+// WaitForControlPlaneStatefulSetsReadiness waits for all control plane StatefulSets to be ready.
+func WaitForControlPlaneStatefulSetsReadiness(testCtx *TestContext, timeout time.Duration, excludeWorkloads []string) error {
+	return waitForControlPlaneWorkloadsByType(testCtx, timeout, []string{"StatefulSet"}, excludeWorkloads)
 }

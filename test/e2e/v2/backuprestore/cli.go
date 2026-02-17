@@ -18,7 +18,7 @@ import (
 
 const (
 	BackupTimeout        = 20 * time.Minute
-	RestoreTimeout       = 40 * time.Minute
+	RestoreTimeout       = 20 * time.Minute
 	DefaultOADPNamespace = "openshift-adp"
 )
 
@@ -349,41 +349,4 @@ func buildScheduleArgs(opts *OADPScheduleOptions) []string {
 	}
 
 	return args
-}
-
-// DefaultOADPBackupOptions returns OADPBackupOptions with sensible defaults
-func DefaultOADPBackupOptions(hcName, hcNamespace string) *OADPBackupOptions {
-	return &OADPBackupOptions{
-		HCName:           hcName,
-		HCNamespace:      hcNamespace,
-		OADPNamespace:    DefaultOADPNamespace,
-		StorageLocation:  "default",
-		TTL:              (2 * time.Hour).String(),
-		SnapshotMoveData: true,
-	}
-}
-
-// DefaultOADPRestoreOptions returns OADPRestoreOptions with sensible defaults
-func DefaultOADPRestoreOptions(hcName, hcNamespace, fromBackup string) *OADPRestoreOptions {
-	return &OADPRestoreOptions{
-		HCName:                 hcName,
-		HCNamespace:            hcNamespace,
-		FromBackup:             fromBackup,
-		OADPNamespace:          DefaultOADPNamespace,
-		ExistingResourcePolicy: "update",
-		RestorePVs:             true,
-		PreserveNodePorts:      true,
-	}
-}
-
-// DefaultOADPScheduleOptions returns OADPScheduleOptions with sensible defaults
-func DefaultOADPScheduleOptions(hcName, hcNamespace, schedule string) *OADPScheduleOptions {
-	return &OADPScheduleOptions{
-		HCName:          hcName,
-		HCNamespace:     hcNamespace,
-		Schedule:        schedule,
-		OADPNamespace:   DefaultOADPNamespace,
-		StorageLocation: "default",
-		TTL:             (2 * time.Hour).String(),
-	}
 }

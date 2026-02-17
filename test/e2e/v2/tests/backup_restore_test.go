@@ -53,7 +53,9 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 		testCtx          *internal.TestContext
 		backupName       string
 		restoreName      string
-		excludeWorkloads []string = []string{"router", "karpenter", "karpenter-operator", "aws-node-termination-handler"}
+		excludeWorkloads []string = []string{
+			"router", "karpenter", "karpenter-operator", "aws-node-termination-handler",
+		}
 	)
 
 	BeforeEach(func() {
@@ -80,9 +82,11 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 	})
 
 	Context(ContextPreBackupControlPlane, func() {
-		It("should have all control plane deployments ready before backup", func() {
-			// Validate ETCD cluster is healthy
-			internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+		It("should have control plane healthy before backup", func() {
+			err := internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			Expect(err).NotTo(HaveOccurred())
+			err = internal.ValidateControlPlaneStatefulSetsReadiness(testCtx, excludeWorkloads)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
@@ -137,7 +141,10 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextPostBackupControlPlane, func() {
 		It("should have control plane healthy after backup", func() {
-			internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			err := internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			Expect(err).NotTo(HaveOccurred())
+			err = internal.ValidateControlPlaneStatefulSetsReadiness(testCtx, excludeWorkloads)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 
@@ -176,6 +183,10 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
+			By("Waiting for control plane statefulsets to be ready")
+			err = internal.WaitForControlPlaneStatefulSetsReadiness(testCtx, backuprestore.RestoreTimeout, excludeWorkloads)
+			Expect(err).NotTo(HaveOccurred())
+
 			By("Waiting for control plane deployments to be ready")
 			err = internal.WaitForControlPlaneDeploymentsReadiness(testCtx, backuprestore.RestoreTimeout, excludeWorkloads)
 			Expect(err).NotTo(HaveOccurred())
@@ -184,7 +195,9 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 
 	Context(ContextPostRestoreControlPlane, func() {
 		It("should have control plane healthy after restore", func() {
-			err := internal.ValidateControlPlaneDeploymentsReadiness(testCtx, excludeWorkloads)
+			err := internal.WaitForControlPlaneStatefulSetsReadiness(testCtx, backuprestore.RestoreTimeout, excludeWorkloads)
+			Expect(err).NotTo(HaveOccurred())
+			err = internal.WaitForControlPlaneDeploymentsReadiness(testCtx, backuprestore.RestoreTimeout, excludeWorkloads)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
