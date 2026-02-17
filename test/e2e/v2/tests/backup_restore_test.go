@@ -51,6 +51,7 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 		prober           backuprestore.ProberManager
 		testCtx          *internal.TestContext
 		backupName       string
+		restoreName      string
 		excludeWorkloads []string = []string{"router", "karpenter", "karpenter-operator", "aws-node-termination-handler"}
 	)
 
@@ -116,13 +117,9 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 			// Wait for backup to complete
 			By("Waiting for backup to complete")
 			err = backuprestore.WaitForBackupCompletion(
-				testCtx.Context,
-				testCtx.MgmtClient,
+				testCtx,
 				backuprestore.VeleroNamespace,
 				backupOpts.Name,
-				testCtx.GetHostedCluster().Name,
-				testCtx.GetHostedCluster().Namespace,
-				backuprestore.BackupTimeout,
 			)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -149,12 +146,23 @@ var _ = Describe("BackupRestoreAWS", Label("backup-restore"), Ordered, func() {
 	Context(ContextRestore, func() {
 		It("should restore from backup successfully", func() {
 			By("Creating Restore")
+			restoreName = oadp.GenerateRestoreName(testCtx.GetHostedCluster().Name, testCtx.GetHostedCluster().Namespace)
 			restoreOpts := &backuprestore.OADPRestoreOptions{
+				Name:        restoreName,
 				HCName:      testCtx.GetHostedCluster().Name,
 				HCNamespace: testCtx.GetHostedCluster().Namespace,
 				FromBackup:  backupName,
 			}
 			err := backuprestore.RunOADPRestore(testCtx.Context, GinkgoLogr.WithName("backup-restore"), testCtx.ArtifactDir, restoreOpts)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Wait for restore to complete
+			By("Waiting for restore to complete")
+			err = backuprestore.WaitForRestoreCompletion(
+				testCtx,
+				backuprestore.VeleroNamespace,
+				restoreName,
+			)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Waiting for control plane deployments to be ready")

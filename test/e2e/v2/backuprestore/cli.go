@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	BackupTimeout        = 30 * time.Minute
+	BackupTimeout        = 20 * time.Minute
+	RestoreTimeout       = 40 * time.Minute
 	DefaultOADPNamespace = "openshift-adp"
 )
 

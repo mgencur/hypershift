@@ -34,6 +34,17 @@ const (
 	BackupPhaseFailed                                    = "Failed"
 	BackupPhasePartiallyFailed                           = "PartiallyFailed"
 	BackupPhaseDeleting                                  = "Deleting"
+
+	// Velero restore phase constants
+	RestorePhaseNew                                       = "New"
+	RestorePhaseInProgress                                = "InProgress"
+	RestorePhaseWaitingForPluginOperations                = "WaitingForPluginOperations"
+	RestorePhaseWaitingForPluginOperationsPartiallyFailed = "WaitingForPluginOperationsPartiallyFailed"
+	RestorePhaseFinalizing                                = "Finalizing"
+	RestorePhaseFinalizingPartiallyFailed                 = "FinalizingPartiallyFailed"
+	RestorePhaseCompleted                                 = "Completed"
+	RestorePhaseFailed                                    = "Failed"
+	RestorePhasePartiallyFailed                           = "PartiallyFailed"
 )
 
 // EnsureVeleroPodRunning checks if the Velero pod is running in the specified namespace.
@@ -65,23 +76,23 @@ func EnsureVeleroPodRunning(testCtx *internal.TestContext, namespace string) err
 	return nil
 }
 
-// WaitForBackupCompletion waits for a backup to complete using Gomega Eventually.
+// WaitForBackupCompletion waits for a backup to complete.
 // If backupName is provided, it waits for that specific backup.
-// If backupName is empty, it finds the most recent backup matching the hcName-hcNamespace prefix.
-func WaitForBackupCompletion(ctx context.Context, client crclient.Client, oadpNamespace string, backupName string, hcName string, hcNamespace string, timeout time.Duration) error {
+// If backupName is empty, it finds the most recent backup matching the HostedCluster name/namespace.
+func WaitForBackupCompletion(testCtx *internal.TestContext, oadpNamespace string, backupName string) error {
 	// If no backup name provided, find the most recent backup matching the prefix
 	if backupName == "" {
 		var err error
-		backupName, err = getLatestBackupForHostedCluster(ctx, client, oadpNamespace, hcName, hcNamespace)
+		backupName, err = getLatestBackupForHostedCluster(testCtx.Context, testCtx.MgmtClient, oadpNamespace, testCtx.ClusterName, testCtx.ClusterNamespace)
 		if err != nil {
-			return fmt.Errorf("failed to find backup for HostedCluster %s/%s: %w", hcNamespace, hcName, err)
+			return fmt.Errorf("failed to find backup for HostedCluster %s/%s: %w", testCtx.ClusterNamespace, testCtx.ClusterName, err)
 		}
 	}
 
-	Eventually(isBackupInFinalState(ctx, client, oadpNamespace, backupName), timeout, 10*time.Second).Should(BeTrue(),
-		fmt.Sprintf("backup %s should complete within %v", backupName, timeout))
+	Eventually(isBackupInFinalState(testCtx.Context, testCtx.MgmtClient, oadpNamespace, backupName), BackupTimeout, 10*time.Second).Should(BeTrue(),
+		fmt.Sprintf("backup %s should complete within %v", backupName, BackupTimeout))
 
-	return ensureBackupSuccessful(ctx, client, oadpNamespace, backupName)
+	return ensureBackupSuccessful(testCtx.Context, testCtx.MgmtClient, oadpNamespace, backupName)
 }
 
 // ensureBackupSuccessful verifies that a backup completed successfully.
@@ -178,6 +189,130 @@ func isBackupInFinalState(ctx context.Context, client crclient.Client, veleroNam
 			BackupPhaseWaitingForPluginOperationsPartiallyFailed,
 			BackupPhaseFinalizing,
 			BackupPhaseFinalizingPartiallyFailed,
+		}
+
+		for _, notDonePhase := range phasesNotDone {
+			if phase == notDonePhase {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// WaitForRestoreCompletion waits for a restore to complete.
+// If restoreName is provided, it waits for that specific restore.
+// If restoreName is empty, it finds the most recent restore matching the HostedCluster name/namespace.
+func WaitForRestoreCompletion(testCtx *internal.TestContext, oadpNamespace string, restoreName string) error {
+	// If no restore name provided, find the most recent restore matching the prefix
+	if restoreName == "" {
+		var err error
+		restoreName, err = getLatestRestoreForHostedCluster(testCtx.Context, testCtx.MgmtClient, oadpNamespace, testCtx.ClusterName, testCtx.ClusterNamespace)
+		if err != nil {
+			return fmt.Errorf("failed to find restore for HostedCluster %s/%s: %w", testCtx.ClusterNamespace, testCtx.ClusterName, err)
+		}
+	}
+
+	Eventually(isRestoreInFinalState(testCtx.Context, testCtx.MgmtClient, oadpNamespace, restoreName), RestoreTimeout, 10*time.Second).Should(BeTrue(),
+		fmt.Sprintf("restore %s should complete within %v", restoreName, RestoreTimeout))
+
+	return ensureRestoreSuccessful(testCtx.Context, testCtx.MgmtClient, oadpNamespace, restoreName)
+}
+
+// ensureRestoreSuccessful verifies that a restore completed successfully.
+func ensureRestoreSuccessful(ctx context.Context, client crclient.Client, oadpNamespace string, restoreName string) error {
+	restore, err := getRestore(ctx, client, oadpNamespace, restoreName)
+	if err != nil {
+		return fmt.Errorf("failed to get restore %s: %w", restoreName, err)
+	}
+
+	phase, _, _ := unstructured.NestedString(restore.Object, "status", "phase")
+	if phase != RestorePhaseCompleted {
+		failureReason, _, _ := unstructured.NestedString(restore.Object, "status", "failureReason")
+		validationErrors, _, _ := unstructured.NestedStringSlice(restore.Object, "status", "validationErrors")
+		warnings, _, _ := unstructured.NestedInt64(restore.Object, "status", "warnings")
+		errors, _, _ := unstructured.NestedInt64(restore.Object, "status", "errors")
+		return fmt.Errorf("restore %s did not complete successfully: phase=%s, failureReason=%s, validationErrors=%v, warnings=%d, errors=%d",
+			restoreName, phase, failureReason, validationErrors, warnings, errors)
+	}
+
+	return nil
+}
+
+// getLatestRestoreForHostedCluster finds the most recent restore matching the hcName-hcNamespace prefix
+func getLatestRestoreForHostedCluster(ctx context.Context, client crclient.Client, oadpNamespace string, hcName string, hcNamespace string) (string, error) {
+	restoreList := &unstructured.UnstructuredList{}
+	restoreList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "velero.io",
+		Version: "v1",
+		Kind:    "RestoreList",
+	})
+	err := client.List(ctx, restoreList, crclient.InNamespace(oadpNamespace))
+	if err != nil {
+		return "", fmt.Errorf("failed to list restores: %w", err)
+	}
+
+	// Filter restores by prefix and collect matching ones
+	prefix := fmt.Sprintf("%s-%s-", hcName, hcNamespace)
+	var matchingRestores []unstructured.Unstructured
+	for _, restore := range restoreList.Items {
+		if strings.HasPrefix(restore.GetName(), prefix) {
+			matchingRestores = append(matchingRestores, restore)
+		}
+	}
+
+	if len(matchingRestores) == 0 {
+		return "", fmt.Errorf("no restores found with prefix %s in namespace %s", prefix, oadpNamespace)
+	}
+
+	// Sort by creation timestamp (most recent first)
+	sort.Slice(matchingRestores, func(i, j int) bool {
+		return matchingRestores[i].GetCreationTimestamp().After(matchingRestores[j].GetCreationTimestamp().Time)
+	})
+
+	return matchingRestores[0].GetName(), nil
+}
+
+// getRestore retrieves a restore by name
+func getRestore(ctx context.Context, client crclient.Client, namespace string, name string) (*unstructured.Unstructured, error) {
+	restore := &unstructured.Unstructured{}
+	restore.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "velero.io",
+		Version: "v1",
+		Kind:    "Restore",
+	})
+	err := client.Get(ctx, crclient.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, restore)
+	if err != nil {
+		return nil, err
+	}
+	return restore, nil
+}
+
+// isRestoreInFinalState returns a function that checks if a restore is in a final state.
+// This can be both success and failure.
+func isRestoreInFinalState(ctx context.Context, client crclient.Client, veleroNamespace, name string) func() bool {
+	return func() bool {
+		restore, err := getRestore(ctx, client, veleroNamespace, name)
+		if err != nil {
+			return false
+		}
+
+		phase, found, err := unstructured.NestedString(restore.Object, "status", "phase")
+		if err != nil || !found {
+			return false
+		}
+
+		// List of phases that indicate the restore is not done
+		phasesNotDone := []string{
+			RestorePhaseNew,
+			RestorePhaseInProgress,
+			RestorePhaseWaitingForPluginOperations,
+			RestorePhaseWaitingForPluginOperationsPartiallyFailed,
+			RestorePhaseFinalizing,
+			RestorePhaseFinalizingPartiallyFailed,
 		}
 
 		for _, notDonePhase := range phasesNotDone {
