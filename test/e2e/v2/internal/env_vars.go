@@ -1,3 +1,4 @@
+//go:build e2ev2
 // +build e2ev2
 
 /*
@@ -147,9 +148,9 @@ func init() {
 		false,
 	)
 	RegisterEnvVarWithDefault(
-		"E2E_STRICT_MODE",
-		"When set to true, enables strict mode validation that requires all pods to belong to predefined workloads.",
+		"ARTIFACT_DIR",
+		"Directory for test artifacts. Defaults to /tmp/artifacts.",
 		false,
-		"false",
+		"/tmp/artifacts",
 	)
 }
