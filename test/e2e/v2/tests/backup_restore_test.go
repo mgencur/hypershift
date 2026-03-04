@@ -59,6 +59,7 @@ var _ = Describe("BackupRestore", Label("backup-restore", "aws"), Ordered, Seria
 		excludeWorkloads []string = []string{
 			"router", "karpenter", "karpenter-operator", "aws-node-termination-handler",
 		}
+		expectedConditions []util.Condition
 	)
 
 	AfterAll(func() {
@@ -96,11 +97,9 @@ var _ = Describe("BackupRestore", Label("backup-restore", "aws"), Ordered, Seria
 			Expect(err).NotTo(HaveOccurred())
 			err = internal.ValidateControlPlaneStatefulSetsReadiness(testCtx, excludeWorkloads)
 			Expect(err).NotTo(HaveOccurred())
-
 			nodePool, err := getNodePool(testCtx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(nodePool).NotTo(BeNil())
-			var expectedConditions []util.Condition
 			for conditionType, conditionStatus := range conditions.ExpectedNodePoolConditions(nodePool) {
 				expectedConditions = append(expectedConditions, util.Condition{
 					Type:   conditionType,
@@ -249,22 +248,10 @@ var _ = Describe("BackupRestore", Label("backup-restore", "aws"), Ordered, Seria
 			err = internal.WaitForControlPlaneDeploymentsReadiness(testCtx, backuprestore.RestoreTimeout, excludeWorkloads)
 			Expect(err).NotTo(HaveOccurred())
 			By("Validating NodePool conditions")
-
 			Eventually(func(g Gomega) {
 				nodePool, err := getNodePool(testCtx)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(nodePool).NotTo(BeNil())
-				conditionMap := conditions.ExpectedNodePoolConditions(nodePool)
-				// See https://issues.redhat.com/browse/OCPBUGS-77621 for why we delete the conditions
-				delete(conditionMap, hyperv1.NodePoolReachedIgnitionEndpoint)
-				delete(conditionMap, hyperv1.NodePoolAutorepairEnabledConditionType)
-				var expectedConditions []util.Condition
-				for conditionType, conditionStatus := range conditionMap {
-					expectedConditions = append(expectedConditions, util.Condition{
-						Type:   conditionType,
-						Status: metav1.ConditionStatus(conditionStatus),
-					})
-				}
 				internal.ValidateConditions(g, nodePool, expectedConditions)
 			}).WithPolling(backuprestore.PollInterval).WithTimeout(backuprestore.OIDCTimeout).Should(Succeed())
 		})
