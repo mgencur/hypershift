@@ -93,7 +93,7 @@ type OADPScheduleOptions struct {
 	OADPNamespace            string   // Namespace where OADP operator is installed (default: openshift-adp)
 	StorageLocation          string   // Backup storage location (default: default)
 	TTL                      string   // Backup retention time (default: 2h)
-	SnapshotMoveData         *bool    // Enable snapshot data movement (default: true)
+	SnapshotMoveData         *bool    // Enable snapshot data movement (default: false)
 	DefaultVolumesToFsBackup bool     // Enable file system backup for volumes
 	IncludedResources        []string // Override included resources
 	IncludeNamespaces        []string // Additional namespaces to include
