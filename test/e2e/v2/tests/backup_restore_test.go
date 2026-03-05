@@ -44,7 +44,6 @@ const (
 	ContextPostBackupControlPlane  = "PostBackupControlPlane"
 	ContextRestore                 = "Restore"
 	ContextPostRestoreControlPlane = "PostRestoreControlPlane"
-	ContextPostRestoreGuest        = "PostRestoreGuest"
 	ContextBreakControlPlane       = "BreakControlPlane"
 )
 
@@ -254,12 +253,6 @@ var _ = Describe("BackupRestore", Label("backup-restore", "aws"), Ordered, Seria
 				g.Expect(nodePool).NotTo(BeNil())
 				internal.ValidateConditions(g, nodePool, expectedConditions)
 			}).WithPolling(backuprestore.PollInterval).WithTimeout(backuprestore.OIDCTimeout).Should(Succeed())
-		})
-	})
-
-	Context(ContextPostRestoreGuest, func() {
-		It("should have guest cluster healthy after restore", func() {
-			Skip("Skipping due to OCPBUGS-59876")
 		})
 	})
 })
