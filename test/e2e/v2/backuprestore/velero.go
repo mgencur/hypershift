@@ -396,6 +396,76 @@ func isRestoreInFinalState(client crclient.Client, namespace, name string) func(
 	return isVeleroResourceInFinalState(client, namespace, name, "restore", phasesNotDone, getRestore)
 }
 
+// WaitForBackupInProgress waits for a backup to reach InProgress phase (or any later phase).
+// This is useful when you need to know the backup has started before performing
+// disruptive operations like breaking the cluster.
+func WaitForBackupInProgress(testCtx *internal.TestContext, backupName string) error {
+	phasesBeforeInProgress := map[string]bool{
+		BackupPhaseNew:          true,
+		BackupPhaseQueued:       true,
+		BackupPhaseReadyToStart: true,
+	}
+
+	err := wait.PollUntilContextTimeout(testCtx.Context, 500*time.Millisecond, BackupTimeout, true, func(ctx context.Context) (bool, error) {
+		backup, err := getBackup(ctx, testCtx.MgmtClient, DefaultOADPNamespace, backupName)
+		if err != nil {
+			return false, fmt.Errorf("failed to get backup %s: %w", backupName, err)
+		}
+
+		phase, found, err := unstructured.NestedString(backup.Object, "status", "phase")
+		if err != nil {
+			return false, fmt.Errorf("failed to get backup phase: %w", err)
+		}
+		if !found {
+			return false, nil
+		}
+
+		// Return true if we're at InProgress or any later phase
+		if !phasesBeforeInProgress[phase] {
+			return true, nil
+		}
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("backup %s did not reach InProgress within %v: %w", backupName, BackupTimeout, err)
+	}
+	return nil
+}
+
+// WaitForBackupCompletionOrPartiallyFailed waits for a backup to reach a final state
+// and accepts both Completed and PartiallyFailed as success. This is useful when
+// the cluster is being broken mid-backup and a partial failure is expected.
+func WaitForBackupCompletionOrPartiallyFailed(testCtx *internal.TestContext, backupName string) error {
+	checkFn := isBackupInFinalState(testCtx.MgmtClient, DefaultOADPNamespace, backupName)
+	err := wait.PollUntilContextTimeout(testCtx.Context, 10*time.Second, BackupTimeout, true, func(ctx context.Context) (bool, error) {
+		return checkFn(ctx)
+	})
+	if err != nil {
+		return fmt.Errorf("backup %s did not reach final state within %v: %w", backupName, BackupTimeout, err)
+	}
+
+	backup, err := getBackup(testCtx.Context, testCtx.MgmtClient, DefaultOADPNamespace, backupName)
+	if err != nil {
+		return fmt.Errorf("failed to get backup %s: %w", backupName, err)
+	}
+
+	phase, found, err := unstructured.NestedString(backup.Object, "status", "phase")
+	if err != nil {
+		return fmt.Errorf("failed to get backup phase: %w", err)
+	}
+	if !found {
+		return nil
+	}
+	if phase == BackupPhaseCompleted || phase == BackupPhasePartiallyFailed {
+		return nil
+	}
+
+	failureReason, _, _ := unstructured.NestedString(backup.Object, "status", "failureReason")
+	validationErrors, _, _ := unstructured.NestedStringSlice(backup.Object, "status", "validationErrors")
+	return fmt.Errorf("backup %s did not complete successfully: phase=%s, failureReason=%s, validationErrors=%v",
+		backupName, phase, failureReason, validationErrors)
+}
+
 // DeleteOADPSchedule deletes a Velero Schedule resource.
 func DeleteOADPSchedule(testCtx *internal.TestContext, scheduleName string) error {
 

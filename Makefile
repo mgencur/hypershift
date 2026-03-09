@@ -325,6 +325,17 @@ test-backup-restore: backuprestore-e2e
 	  --ginkgo.fail-fast=$(FAIL_FAST) \
 	  --ginkgo.timeout=2h
 
+.PHONY: test-backup-during-break
+test-backup-during-break: backuprestore-e2e
+	mkdir -p $(ARTIFACT_DIR)
+	ARTIFACT_DIR=$(ARTIFACT_DIR) bin/test-backuprestore \
+	  --ginkgo.v \
+	  --ginkgo.no-color=$(OPENSHIFT_CI) \
+	  --ginkgo.junit-report="$(ARTIFACT_DIR)/junit.xml" \
+	  --ginkgo.label-filter="backup-during-break" \
+	  --ginkgo.fail-fast=$(FAIL_FAST) \
+	  --ginkgo.timeout=6h
+
 # Run go fmt against code
 .PHONY: fmt
 fmt:
