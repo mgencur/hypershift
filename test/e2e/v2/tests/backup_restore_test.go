@@ -29,8 +29,10 @@ import (
 	"github.com/openshift/hypershift/test/e2e/util"
 	"github.com/openshift/hypershift/test/e2e/v2/backuprestore"
 	"github.com/openshift/hypershift/test/e2e/v2/internal"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	capiv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -112,8 +114,8 @@ var _ = Describe("BackupRestore", Label("backup-restore", "aws"), Ordered, Seria
 	// Setup the continual operations
 	Context(ContextSetupContinual, func() {
 		It("should setup continual operations successfully", func() {
-			Skip("Skipping until CNTRLPLANE-2676 is implemented")
 			verifyReconciliationActiveFunction := func() error {
+				// Check HostedCluster
 				hostedCluster := &hyperv1.HostedCluster{}
 				err := testCtx.MgmtClient.Get(testCtx.Context, crclient.ObjectKey{
 					Name:      testCtx.ClusterName,
@@ -124,14 +126,57 @@ var _ = Describe("BackupRestore", Label("backup-restore", "aws"), Ordered, Seria
 				}
 				condition := meta.FindStatusCondition(hostedCluster.Status.Conditions, string(hyperv1.ReconciliationActive))
 				if condition == nil {
-					return fmt.Errorf("ReconciliationActive condition should exist")
+					return fmt.Errorf("HostedCluster ReconciliationActive condition should exist")
 				}
 				if condition.Status != metav1.ConditionTrue {
-					return fmt.Errorf("ReconciliationActive should be always True, but is %s at time %s: %s", condition.Status, condition.LastTransitionTime, condition.Message)
+					return fmt.Errorf("HostedCluster ReconciliationActive should be always True, but is %s at time %s: %s", condition.Status, condition.LastTransitionTime, condition.Message)
+				}
+
+				// Check HostedControlPlane
+				hcp := &hyperv1.HostedControlPlane{}
+				err = testCtx.MgmtClient.Get(testCtx.Context, crclient.ObjectKey{
+					Name:      testCtx.ClusterName,
+					Namespace: testCtx.ControlPlaneNamespace,
+				}, hcp)
+				if err != nil {
+					return fmt.Errorf("failed to get HostedControlPlane: %w", err)
+				}
+				hcpCondition := meta.FindStatusCondition(hcp.Status.Conditions, string(hyperv1.ReconciliationActive))
+				if hcpCondition == nil {
+					return fmt.Errorf("HostedControlPlane ReconciliationActive condition should exist")
+				}
+				if hcpCondition.Status != metav1.ConditionTrue {
+					return fmt.Errorf("HostedControlPlane ReconciliationActive should be always True, but is %s at time %s: %s", hcpCondition.Status, hcpCondition.LastTransitionTime, hcpCondition.Message)
+				}
+
+				// Check NodePool
+				nodePool, err := getNodePool(testCtx)
+				if err != nil {
+					return fmt.Errorf("failed to get NodePool: %w", err)
+				}
+				for _, npCondition := range nodePool.Status.Conditions {
+					if npCondition.Type == hyperv1.NodePoolReconciliationActiveConditionType {
+						if npCondition.Status != corev1.ConditionTrue {
+							return fmt.Errorf("NodePool ReconciliationActive should be always True, but is %s at time %s: %s", npCondition.Status, npCondition.LastTransitionTime, npCondition.Message)
+						}
+						break
+					}
+				}
+
+				// Check MachineDeployment for CAPI paused annotation
+				mdList := &capiv1.MachineDeploymentList{}
+				err = testCtx.MgmtClient.List(testCtx.Context, mdList, crclient.InNamespace(testCtx.ControlPlaneNamespace))
+				if err != nil {
+					return fmt.Errorf("failed to list MachineDeployments: %w", err)
+				}
+				for i := range mdList.Items {
+					if _, paused := mdList.Items[i].Annotations[capiv1.PausedAnnotation]; paused {
+						return fmt.Errorf("MachineDeployment %s has %s annotation set", mdList.Items[i].Name, capiv1.PausedAnnotation)
+					}
 				}
 				return nil
 			}
-			prober = backuprestore.NewProberManager(time.Second)
+			prober = backuprestore.NewProberManager(500 * time.Millisecond)
 			prober.Spawn(verifyReconciliationActiveFunction)
 		})
 	})
@@ -187,7 +232,6 @@ var _ = Describe("BackupRestore", Label("backup-restore", "aws"), Ordered, Seria
 	// Verify the continual operations
 	Context(ContextVerifyContinual, func() {
 		It("should verify continual operations completed successfully", func() {
-			Skip("Skipping until CNTRLPLANE-2676 is implemented")
 			err := prober.Stop()
 			Expect(err).NotTo(HaveOccurred())
 		})
