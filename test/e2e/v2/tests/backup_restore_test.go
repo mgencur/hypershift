@@ -246,6 +246,20 @@ var _ = Describe("BackupRestore", Label("backup-restore", "aws"), Ordered, Seria
 			By("Waiting for control plane deployments to be ready")
 			err = internal.WaitForControlPlaneDeploymentsReadiness(testCtx, backuprestore.RestoreTimeout, excludeWorkloads)
 			Expect(err).NotTo(HaveOccurred())
+			By("Waiting for NodePool to reach WaitingForAvailableMachines state")
+			Eventually(func(g Gomega) {
+				nodePool, err := getNodePool(testCtx)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(nodePool).NotTo(BeNil())
+				internal.ValidateConditions(g, nodePool, []util.Condition{
+					{
+						Type:   hyperv1.NodePoolReadyConditionType,
+						Status: metav1.ConditionFalse,
+						Reason: "WaitingForAvailableMachines",
+					},
+				})
+			}).WithPolling(backuprestore.PollInterval).WithTimeout(backuprestore.OIDCTimeout).Should(Succeed())
+
 			By("Validating NodePool conditions")
 			Eventually(func(g Gomega) {
 				nodePool, err := getNodePool(testCtx)
