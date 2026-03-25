@@ -300,6 +300,52 @@ func GetSupportedOCPVersions(ctx context.Context, namespace string, client crcli
 	}
 }
 
+// findSupportedVersionsConfigMap discovers the supported-versions ConfigMap by label
+// across all namespaces and returns the parsed supported versions along with the namespace.
+func findSupportedVersionsConfigMap(ctx context.Context, client crclient.Client) (SupportedVersions, string, error) {
+	configMapList := &corev1.ConfigMapList{}
+	if err := client.List(ctx, configMapList, crclient.MatchingLabels{"hypershift.openshift.io/supported-versions": "true"}); err != nil {
+		return SupportedVersions{}, "", fmt.Errorf("failed to list ConfigMaps to find supported versions: %w", err)
+	}
+
+	var supportedVersionsCM *corev1.ConfigMap
+	var namespace string
+	for i := range configMapList.Items {
+		if configMapList.Items[i].Name == "supported-versions" {
+			supportedVersionsCM = &configMapList.Items[i]
+			namespace = configMapList.Items[i].Namespace
+			break
+		}
+	}
+	if namespace == "" {
+		return SupportedVersions{}, "", fmt.Errorf("failed to find supported versions ConfigMap")
+	}
+
+	versions, _, err := GetSupportedOCPVersions(ctx, namespace, client, supportedVersionsCM)
+	if err != nil {
+		return SupportedVersions{}, "", fmt.Errorf("failed to get supported OCP versions: %w", err)
+	}
+	return versions, namespace, nil
+}
+
+// GetLatestSupportedOCPVersion returns the latest supported OCP version advertised
+// by the HyperShift operator's supported-versions ConfigMap. It discovers the ConfigMap
+// by label across all namespaces, so the caller does not need to know the namespace.
+func GetLatestSupportedOCPVersion(ctx context.Context, client crclient.Client) (semver.Version, error) {
+	supportedVersions, _, err := findSupportedVersionsConfigMap(ctx, client)
+	if err != nil {
+		return semver.Version{}, err
+	}
+	if len(supportedVersions.Versions) == 0 {
+		return semver.Version{}, fmt.Errorf("no supported OCP versions found")
+	}
+	latest, err := semver.Parse(supportedVersions.Versions[0] + ".0")
+	if err != nil {
+		return semver.Version{}, fmt.Errorf("failed to parse version %q: %w", supportedVersions.Versions[0], err)
+	}
+	return latest, nil
+}
+
 type ocpTags struct {
 	Name string       `json:"name"`
 	Tags []ocpVersion `json:"tags"`
@@ -348,31 +394,9 @@ func ValidateVersionSkew(hostedClusterVersion, nodePoolVersion *semver.Version) 
 // The function filters out release candidates and validates versions against the supported-versions ConfigMap,
 // returning the newest supported non-RC version.
 func retrieveSupportedOCPVersion(ctx context.Context, releaseURL string, client crclient.Client) (ocpVersion, error) {
-	var supportedVersions *corev1.ConfigMap
-	var namespace string
-
-	// Find the supported versions ConfigMap since it may be in a different namespace than the default "hypershift"
-	configMapList := &corev1.ConfigMapList{}
-	err := client.List(ctx, configMapList, crclient.MatchingLabels{"hypershift.openshift.io/supported-versions": "true"})
+	supportedOCPVersions, _, err := findSupportedVersionsConfigMap(ctx, client)
 	if err != nil {
-		return ocpVersion{}, fmt.Errorf("failed to list ConfigMaps to find supported versions: %v", err)
-	}
-	for _, configMap := range configMapList.Items {
-		if configMap.Name == "supported-versions" {
-			supportedVersions = &configMap
-			namespace = configMap.Namespace
-			break
-		}
-	}
-
-	if namespace == "" {
-		return ocpVersion{}, fmt.Errorf("failed to find supported versions ConfigMap")
-	}
-
-	// Get the latest supported OCP version from the supported versions ConfigMap
-	supportedOCPVersions, _, err := GetSupportedOCPVersions(ctx, namespace, client, supportedVersions)
-	if err != nil {
-		return ocpVersion{}, fmt.Errorf("failed to get supported OCP versions: %v", err)
+		return ocpVersion{}, err
 	}
 	if len(supportedOCPVersions.Versions) == 0 {
 		return ocpVersion{}, fmt.Errorf("no supported OCP versions found in the ConfigMap")
