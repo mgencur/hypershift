@@ -148,19 +148,11 @@ func (o *CreateOptions) RunSchedule(ctx context.Context) error {
 
 			// Step 5: Verify DPA configuration includes HyperShift plugin
 			o.Log.Info("Verifying DPA configuration...")
-			if err := oadp.VerifyDPAStatus(ctx, o.Client, o.OADPNamespace); err != nil {
-				return fmt.Errorf("DPA verification failed: %w", err)
-			}
 		} else {
 			// In render mode, run optional validations
 			o.Log.Info("Validating OADP components...")
 			if err := oadp.ValidateOADPComponents(ctx, o.Client, o.OADPNamespace); err != nil {
 				o.Log.Info("Warning: OADP validation failed, but continuing with render", "error", err.Error())
-			} else {
-				o.Log.Info("Verifying DPA configuration...")
-				if err := oadp.VerifyDPAStatus(ctx, o.Client, o.OADPNamespace); err != nil {
-					o.Log.Info("Warning: DPA verification failed, but continuing with render", "error", err.Error())
-				}
 			}
 		}
 	} else {

@@ -127,22 +127,11 @@ func (o *CreateOptions) RunBackup(ctx context.Context) error {
 			if err := oadp.ValidateOADPComponents(ctx, o.Client, o.OADPNamespace); err != nil {
 				return fmt.Errorf("OADP validation failed: %w", err)
 			}
-
-			// Step 3: Verify DPA CR exists (only in non-render mode)
-			o.Log.Info("Verifying DataProtectionApplication resource...")
-			if err := oadp.VerifyDPAStatus(ctx, o.Client, o.OADPNamespace); err != nil {
-				return fmt.Errorf("DPA verification failed: %w", err)
-			}
 		} else {
 			// In render mode, run optional validations
 			o.Log.Info("Validating OADP installation...")
 			if err := oadp.ValidateOADPComponents(ctx, o.Client, o.OADPNamespace); err != nil {
 				o.Log.Info("Warning: OADP validation failed, but continuing with render", "error", err.Error())
-			} else {
-				o.Log.Info("Verifying DataProtectionApplication resource...")
-				if err := oadp.VerifyDPAStatus(ctx, o.Client, o.OADPNamespace); err != nil {
-					o.Log.Info("Warning: DPA verification failed, but continuing with render", "error", err.Error())
-				}
 			}
 		}
 	} else {
