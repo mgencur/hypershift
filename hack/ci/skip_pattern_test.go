@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-const skipPattern = `(^(\.tekton|\.github|\.claude|docs|examples|enhancements|contrib|\.cursor|test/envtest)/)|(\.md$)|((^|/)OWNERS$)|(/overrides\.yaml$)|(^renovate\.json$)|(/\.testcoverage\.yml$)|(^\.gitlint$)|(^\.gitignore$)|(^\.coderabbit\.yaml$)|(^\.dockerignore$)|(^codecov\.yml$)|(^(api|availability-prober|client|cmd|contrib|control-plane-operator|control-plane-pki-operator|dnsresolver|etcd-backup|etcd-defrag|etcd-recovery|etcd-upload|hack|hypershift-ci-python|hypershift-operator|ignition-server|karpenter-operator|kas-bootstrap|konnectivity-https-proxy|konnectivity-socks5-proxy|kubevirtexternalinfra|kubernetes-default-proxy|oadp-debug|pkg|product-cli|shared-ingress|sharedingress-config-generator|support|sync-fg-configmap|sync-global-pullsecret|token-minter)/.*_test\.go$)`
+const skipPattern = `(^(\.tekton|\.github|\.claude|docs|examples|enhancements|contrib|\.cursor|test/envtest)/)|(\.md$)|((^|/)OWNERS$)|(/overrides\.yaml$)|(^renovate\.json$)|(/\.testcoverage\.yml$)|(^\.gitlint$)|(^\.gitignore$)|(^\.coderabbit\.yaml$)|(^\.dockerignore$)|(^codecov\.yml$)|(^(?:[^t/][^/]*|t|t[^e/][^/]*|te|te[^s/][^/]*|tes|tes[^t/][^/]*|test[^/]+)/.*_test\.go$)`
 
 func TestSkipPattern(t *testing.T) {
 	re := regexp.MustCompile(skipPattern)
@@ -76,6 +76,7 @@ func TestSkipPattern(t *testing.T) {
 		{"e2e v2 internal test", "test/e2e/v2/internal/env_vars_test.go", false},
 		{"e2e v2 lifecycle test", "test/e2e/v2/lifecycle/azure_test.go", false},
 		{"e2e integration test", "test/integration/control_plane_test.go", false},
+		{"reqserving e2e test", "test/reqserving-e2e/reqserving_e2e_test.go", false},
 
 		// Non-test Go files should never be skipped
 		{"go source in api", "api/hypershift/v1beta1/types.go", false},
@@ -84,7 +85,6 @@ func TestSkipPattern(t *testing.T) {
 		// Edge cases
 		{"test.go not _test.go", "support/util/test.go", false},
 		{"_test.go at root", "_test.go", false},
-		{"partial dir name match", "supportive/util_test.go", false},
 		{"md in filename not extension", "cmd/markdown_parser.go", false},
 	}
 
