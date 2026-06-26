@@ -91,6 +91,35 @@ func TestCleanupAWSOIDCBucketData(t *testing.T) {
 			bucketName:      "my-bucket",
 			expectFinalizer: false,
 		},
+		{
+			name: "When DeleteObjects returns partial failure, it should return error and keep finalizer",
+			hcluster: &hyperv1.HostedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test",
+					Namespace:  "clusters",
+					Finalizers: []string{oidcDocumentsFinalizer},
+				},
+				Spec: hyperv1.HostedClusterSpec{InfraID: "test-infra"},
+			},
+			setupS3Mock: func(ctrl *gomock.Controller) awsapi.S3API {
+				m := awsapi.NewMockS3API(ctrl)
+				m.EXPECT().DeleteObjects(gomock.Any(), gomock.Any()).
+					Return(&s3.DeleteObjectsOutput{
+						Errors: []s3types.Error{
+							{
+								Key:     aws.String("test-infra/.well-known/openid-configuration"),
+								Code:    aws.String("AccessDenied"),
+								Message: aws.String("Access Denied"),
+							},
+						},
+					}, nil)
+				return m
+			},
+			bucketName:      "my-bucket",
+			expectErr:       true,
+			expectErrMsg:    "partial failure deleting OIDC objects",
+			expectFinalizer: true,
+		},
 	}
 
 	for _, tc := range tests {
