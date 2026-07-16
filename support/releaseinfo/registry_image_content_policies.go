@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/openshift/hypershift/support/releaseinfo/registryclient"
 	"github.com/openshift/hypershift/support/thirdparty/library-go/pkg/image/reference"
@@ -28,6 +29,7 @@ type ProviderWithOpenShiftImageRegistryOverridesDecorator struct {
 }
 
 func (p *ProviderWithOpenShiftImageRegistryOverridesDecorator) Lookup(ctx context.Context, image string, pullSecret []byte) (*ReleaseImage, error) {
+	start := time.Now()
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -37,21 +39,25 @@ func (p *ProviderWithOpenShiftImageRegistryOverridesDecorator) Lookup(ctx contex
 	}
 
 	logger := ctrl.LoggerFrom(ctx)
+	logger.Info("Lock acquired", "lockWait", time.Since(start).String(), "image", image)
 
 	for registrySource, registryDest := range p.OpenShiftImageRegistryOverrides {
 		if strings.Contains(image, registrySource) {
 			for _, registryReplacement := range registryDest {
 				replacedImage := strings.Replace(image, registrySource, registryReplacement, 1)
+				logger.Info("Trying mirror", "image", replacedImage)
 
 				// Attempt to lookup image with mirror registry destination
 				releaseImage, err := p.Delegate.Lookup(ctx, replacedImage, pullSecret)
+				logger.Info("Delegate lookup completed", "image", replacedImage, "found", releaseImage != nil)
 				if releaseImage != nil {
 					// Verify mirror image availability.
 					if _, _, err = repoSetup(ctx, replacedImage, pullSecret); err == nil {
+						logger.Info("Found mirror", "image", replacedImage)
 						p.mirroredReleaseImage = replacedImage
 						return releaseImage, nil
 					}
-					logger.Info("WARNING: The current mirrors image is unavailable, continue Scanning multiple mirrors", "error", err.Error(), "mirror image", image)
+					logger.Info("WARNING: The current mirror image is unavailable, continue Scanning multiple mirrors", "error", err.Error(), "mirror image", image)
 					continue
 				}
 
@@ -62,7 +68,9 @@ func (p *ProviderWithOpenShiftImageRegistryOverridesDecorator) Lookup(ctx contex
 
 	// Reset mirrored release image when falling back to original
 	p.mirroredReleaseImage = ""
-	return p.Delegate.Lookup(ctx, image, pullSecret)
+	result, err := p.Delegate.Lookup(ctx, image, pullSecret)
+	logger.Info("Falling back to original image", "image", image)
+	return result, err
 }
 
 func (p *ProviderWithOpenShiftImageRegistryOverridesDecorator) GetRegistryOverrides() map[string]string {

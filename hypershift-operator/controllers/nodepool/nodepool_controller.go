@@ -188,6 +188,7 @@ func (r *NodePoolReconciler) managedResources() []client.Object {
 
 func (r *NodePoolReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrl.LoggerFrom(ctx)
+	log.Info("Reconciling")
 
 	// Fetch the nodePool instance
 	nodePool := &hyperv1.NodePool{}
@@ -664,6 +665,8 @@ func validateManagement(nodePool *hyperv1.NodePool) error {
 }
 
 func (r *NodePoolReconciler) getReleaseImage(ctx context.Context, hostedCluster *hyperv1.HostedCluster, currentVersion string, releaseImage string) (*releaseinfo.ReleaseImage, error) {
+	log := ctrl.LoggerFrom(ctx)
+	totalStart := time.Now()
 	pullSecretBytes, err := r.getPullSecretBytes(ctx, hostedCluster)
 	if err != nil {
 		return nil, err
@@ -705,6 +708,8 @@ func (r *NodePoolReconciler) getReleaseImage(ctx context.Context, hostedCluster 
 	if err != nil {
 		return nil, err
 	}
+
+	log.Info("Release image lookup completed", "duration", time.Since(totalStart).String(), "image", releaseImage)
 
 	return ReleaseImage, supportedversion.IsValidReleaseVersion(&wantedVersion, currentVersionParsed, hostedClusterVersion, &minSupportedVersion, hostedCluster.Spec.Networking.NetworkType, hostedCluster.Spec.Platform.Type)
 }
