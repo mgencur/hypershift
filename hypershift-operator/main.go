@@ -115,10 +115,6 @@ func main() {
 		os.Setenv("KUBE_FEATURE_WatchListClient", "false")
 	}
 
-	ctrl.SetLogger(zap.New(zap.JSONEncoder(func(o *zapcore.EncoderConfig) {
-		o.EncodeTime = zapcore.RFC3339TimeEncoder
-	})))
-
 	cmd := &cobra.Command{
 		Use: "hypershift-operator",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -162,6 +158,8 @@ type StartOptions struct {
 	ScaleFromZeroCreds                     string
 	EtcdBackupMaxCount                     int
 	HCPEgressBlockCIDRs                    []string
+	ZapLogLevel                            int
+	ZapDevel                               bool
 }
 
 func NewStartCommand() *cobra.Command {
@@ -203,6 +201,8 @@ func NewStartCommand() *cobra.Command {
 	cmd.Flags().StringVar(&opts.ScaleFromZeroCreds, "scale-from-zero-creds", opts.ScaleFromZeroCreds, "Path to credentials file for scale-from-zero instance type queries")
 	cmd.Flags().IntVar(&opts.EtcdBackupMaxCount, "etcd-backup-max-count", 5, "Maximum number of completed HCPEtcdBackup CRs to retain per HostedControlPlane")
 	cmd.Flags().StringArrayVar(&opts.HCPEgressBlockCIDRs, "hcp-egress-block-cidrs", nil, "Static CIDRs to block in HCP namespace egress NetworkPolicies instead of dynamically-discovered hosting cluster KAS endpoint IPs. When specified, eliminates NetworkPolicy churn during hosting cluster KAS rolling restarts and avoids OVN port-group reconciliation races that can drop traffic to HCP routers. May be specified multiple times (e.g. --hcp-egress-block-cidrs=10.0.0.0/16 --hcp-egress-block-cidrs=10.1.0.0/16).")
+	cmd.Flags().IntVar(&opts.ZapLogLevel, "zap-log-level", 0, "Log verbosity level (0=info, higher=more verbose)")
+	cmd.Flags().BoolVar(&opts.ZapDevel, "zap-devel", false, "Enable development mode logging (human-readable console output, stack traces on warnings)")
 
 	// Attempt to determine featureset prior to adding featuregate flags.
 	// It is safe to get the empty string from this as the empty string is the default featureset.
@@ -220,6 +220,14 @@ func NewStartCommand() *cobra.Command {
 	cpofeaturegate.ConfigureFeatureSet(featureSet)
 
 	cmd.Run = func(cmd *cobra.Command, args []string) {
+		zapOpts := []zap.Opts{zap.Level(zapcore.Level(-1 * opts.ZapLogLevel)), zap.UseDevMode(opts.ZapDevel)}
+		if !opts.ZapDevel {
+			zapOpts = append(zapOpts, zap.JSONEncoder(func(o *zapcore.EncoderConfig) {
+				o.EncodeTime = zapcore.RFC3339TimeEncoder
+			}))
+		}
+		ctrl.SetLogger(zap.New(zapOpts...))
+
 		ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
 		defer cancel()
 
